@@ -1,0 +1,60 @@
+# TLDR Radio — two services, no host dependency (Plex guard is optional).
+# Config comes from a .env file in this folder (copy .env.example → .env).
+#   make up      (or: docker compose up -d --build)
+#   open http://localhost:7777
+
+services:
+  app:
+    build: .
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./data:/data                       # episodes.db, mp3s, cached HTML — persisted on the host
+    environment:
+      KOKORO_URL: http://kokoro:8880
+      DATA_DIR: /data
+      RETENTION_DAYS: "14"
+      DEFAULT_VOICE: af_heart
+      MAX_CONCURRENT_SYNTH: "${MAX_CONCURRENT_SYNTH:-4}"
+      AUTO_BROADCAST_TIME: "${AUTO_BROADCAST_TIME:-}"
+      AUTO_BROADCAST_EDITIONS: "${AUTO_BROADCAST_EDITIONS:-tech,ai,infosec}"
+      AUTO_BROADCAST_RETRY_HOURS: "${AUTO_BROADCAST_RETRY_HOURS:-4}"
+      NTFY_URL: "${NTFY_URL:-}"
+      PLEX_URL: "${PLEX_URL:-}"
+      PLEX_TOKEN: "${PLEX_TOKEN:-}"
+      TZ: "${TZ:-UTC}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # so PLEX_URL can reach Plex on the Windows host
+    depends_on:
+      kokoro:
+        condition: service_healthy            # wait for Kokoro to be READY, not just started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7777/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    restart: unless-stopped
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest   # multi-arch; model bundled in the image
+    environment:
+      TZ: "${TZ:-UTC}"
+    healthcheck:
+      # The server binds :8880 only after the model has warmed up, so a TCP connect == ready.
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8880), 3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: "${KOKORO_CPUS:-6}"           # cap synthesis CPU so it can't starve Plex transcoding
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    restart: unless-stopped

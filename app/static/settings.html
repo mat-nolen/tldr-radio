@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TLDR Radio — Settings</title>
+<link rel="stylesheet" href="styles/fonts.css">
+<link rel="stylesheet" href="styles/design-tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<style>
+  .settings-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-7); align-items: start; }
+  @media (max-width: 860px) { .settings-grid { grid-template-columns: 1fr; } }
+  .voice-group { margin-bottom: var(--space-6); }
+  .voice-row {
+    display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3);
+    align-items: center; padding: var(--space-3) var(--space-3);
+    border-bottom: 1px solid var(--rule);
+  }
+  .voice-row:last-child { border-bottom: 0; }
+  .voice-name { font-family: var(--font-display); font-weight: 700; }
+  .voice-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-3); }
+  .audition {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: 0.06em;
+    padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: var(--r-md);
+    background: var(--paper-3); color: var(--ink); cursor: pointer;
+  }
+  .audition:hover { border-color: var(--signal); color: var(--signal); }
+  .audition svg { width: 14px; height: 14px; fill: currentColor; }
+  .pick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: var(--fs-sm); }
+  .pick input { accent-color: var(--signal); width: 18px; height: 18px; }
+  .retain-field { display: flex; flex-direction: column; gap: 8px; margin: var(--space-4) 0; }
+  .retain-field input {
+    font-family: var(--font-mono); font-size: var(--fs-lg); width: 120px;
+    padding: var(--space-3) var(--space-4); border: 1px solid var(--rule-strong);
+    border-radius: var(--r-md); background: var(--paper-3); color: var(--ink);
+  }
+  /* Stations. The description column earns the width between the name and the switches — with
+     it empty the eye had to cross an inch of blank paper to reach a checkbox. */
+  .st-head, .st-row {
+    display: grid;
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr) 4.5rem 4.5rem;
+    gap: var(--space-3) var(--space-5); align-items: center;
+    /* Capped so the table stays a proportioned block on a wide monitor instead of stretching
+       the switches away from the text it belongs to. The description column then settles at a
+       ~48ch measure on its own — no separate cap needed. */
+    max-width: 68rem;
+  }
+  .st-head {
+    padding: 0 var(--space-3) var(--space-3);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .st-head span { font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-2); }
+  .st-head .st-col, .st-row .st-col { text-align: center; }
+  .st-row { padding: var(--space-3); border-bottom: 1px solid var(--rule); border-radius: var(--r-sm); }
+  .st-row:last-child { border-bottom: 0; }
+  .st-row:hover { background: color-mix(in srgb, var(--st) 8%, transparent); }
+  .st-name { font-family: var(--font-display); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .st-name i { width: 10px; height: 10px; border-radius: var(--r-pill); background: var(--st); flex: none; }
+  .st-tag { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-2); }
+  .st-desc { color: var(--ink-2); font-size: var(--fs-sm); text-wrap: pretty; }
+  .st-row input { accent-color: var(--signal); width: 18px; height: 18px; cursor: pointer; }
+  /* Not --ink-3: this line is how you find out the night run just became three hours long,
+     which makes it content, not metadata (same call as the day headers in the Library). */
+  .st-est { margin: var(--space-4) 0; color: var(--ink-2); }
+  /* Too narrow for three text columns — the tagline already says what's in an episode, so the
+     description is what goes, not the switches. */
+  @media (max-width: 900px) {
+    .st-head, .st-row { grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem; }
+    .st-desc { display: none; }
+  }
+  @media (max-width: 520px) {
+    .st-head, .st-row { grid-template-columns: minmax(0, 1fr) 3.2rem 3.2rem; gap: var(--space-2); }
+  }
+</style>
+</head>
+<body>
+<header class="mast console">
+  <div class="wrap mast-inner">
+    <a class="wordmark" href="index.html"><span class="wm-dot"></span>TLDR <span class="wm-thin">RADIO</span></a>
+    <nav class="mast-nav">
+      <a href="index.html">The Desk</a>
+      <a href="player.html">Library</a>
+      <a href="settings.html" aria-current="page">Settings</a>
+      <button class="theme-btn" data-theme-toggle aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <span data-theme-label>Daytime</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap page">
+  <p class="eyebrow">Settings</p>
+  <h1 style="margin-bottom:var(--space-6)">Stations, voice &amp; retention</h1>
+
+  <!-- Stations -->
+  <section class="panel panel-pad" style="margin-bottom:var(--space-7)">
+    <div class="row-between">
+      <h3>Stations</h3>
+      <span class="mono muted">14 newsletters · tldr.tech</span>
+    </div>
+    <p class="muted" style="margin:var(--space-3) 0 var(--space-5);max-width:62ch">
+      <strong>Desk</strong> puts a newsletter on the Broadcast Desk so you can run it by hand.
+      <strong>Auto</strong> adds it to the overnight run — which implies Desk. Episodes you've
+      already made stay in the Library either way.
+    </p>
+
+    <div class="st-head">
+      <span>Newsletter</span>
+      <span class="st-desc">What it covers</span>
+      <span class="st-col">Desk</span>
+      <span class="st-col">Auto</span>
+    </div>
+    <div id="station-list"><p class="muted mono" style="padding:var(--space-4)">Loading stations…</p></div>
+
+    <p class="mono muted st-est" id="station-estimate"></p>
+    <button class="btn btn-signal" id="save-stations">Save stations</button>
+  </section>
+
+  <div class="settings-grid">
+    <!-- Voice picker -->
+    <section class="panel panel-pad">
+      <div class="row-between">
+        <h3>Voice picker</h3>
+        <span class="mono muted">54 voices · Kokoro-82M</span>
+      </div>
+      <p class="muted" style="margin:var(--space-3) 0 var(--space-5);max-width:52ch">Audition plays a fixed sample line and caches it. The default is used for new episodes; each broadcast can override it.</p>
+
+      <div id="voice-list"><p class="muted mono">Loading voices…</p></div>
+
+      <button class="btn btn-signal" id="save-voice">Save default voice</button>
+    </section>
+
+    <!-- Retention + theme -->
+    <section>
+      <div class="panel panel-pad" style="margin-bottom:var(--space-5)">
+        <h3>Retention</h3>
+        <p class="muted" style="margin:var(--space-3) 0;max-width:40ch">Episodes, mp3s, and cached pages older than this are pruned nightly.</p>
+        <label class="retain-field">
+          <span class="eyebrow">Keep for (days)</span>
+          <input type="number" id="retention" value="14" min="1" max="90">
+        </label>
+        <button class="btn" id="save-retention">Save retention</button>
+      </div>
+
+      <div class="panel panel-pad">
+        <h3>Appearance</h3>
+        <p class="muted" style="margin:var(--space-3) 0;max-width:40ch">Daytime Paper or Night Broadcast. Follows your system by default.</p>
+        <button class="btn" data-theme-toggle>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+          Theme: <span data-theme-label>Daytime</span>
+        </button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+/* ============================================================================
+   TLDR Radio — Design Tokens
+   Direction: "Broadcast Desk" — warm oat paper + dark radio faceplate + a single
+   signal-orange tube-glow accent, three per-edition station colors, and a
+   deliberate type trio (Bricolage Grotesque / Newsreader / Space Mono).
+
+   Every hex is a deliberate choice for this brief — NOT a framework default.
+   Two themes: Daytime Paper (default / light) and Night Broadcast (dark dial-glow).
+   ============================================================================ */
+
+:root {
+  /* ---- Type families -------------------------------------------------------
+     Production note: self-host these as woff2 in app/static/fonts/ to honor the
+     brief's "no CDN dependencies" build constraint. Fallback stacks keep the
+     design coherent if a face fails to load. */
+  --font-display: 'Bricolage Grotesque', 'Archivo', 'Helvetica Neue', system-ui, sans-serif;
+  --font-body:    'Newsreader', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-mono:    'Space Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ---- Type scale (base 16px) ---------------------------------------------- */
+  --fs-xs:   0.6875rem;  /* 11px — mono micro-labels, keycaps */
+  --fs-sm:   0.8125rem;  /* 13px — metadata, captions */
+  --fs-base: 1.0625rem;  /* 17px — Newsreader body reads a touch large */
+  --fs-md:   1.1875rem;  /* 19px — lead paragraphs */
+  --fs-lg:   1.5rem;     /* 24px — card / section titles */
+  --fs-xl:   2rem;       /* 32px — episode titles */
+  --fs-2xl:  2.75rem;    /* 44px — masthead wordmark */
+  --fs-hero: clamp(2.5rem, 6vw, 4.25rem);
+
+  --lh-tight: 1.08;
+  --lh-snug:  1.3;
+  --lh-body:  1.62;
+
+  --tracking-mono: 0.06em;   /* mono labels get a broadcast-panel spread */
+  --tracking-mast: -0.015em; /* display tightens up */
+
+  /* ---- Spacing (4px base) -------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ---- Radius — crafted hardware, mostly crisp ----------------------------- */
+  --r-sm:   2px;
+  --r-md:   5px;
+  --r-lg:   9px;
+  --r-pill: 999px;
+
+  /* ---- Layout -------------------------------------------------------------- */
+  --content-max: 1180px;
+  --rail-w: 340px;
+
+  /* ================= DAYTIME PAPER (light, default) ======================== */
+  --paper:       #EDE7D8;  /* app ground — warm oat, deliberately deeper than cream */
+  --paper-2:     #F6F1E6;  /* raised surface — panels, cards */
+  --paper-3:     #FBF8F0;  /* highest surface — inputs, popovers */
+  --ink:         #1C1712;  /* primary text — warm near-black, not #000 */
+  --ink-2:       #4A4237;  /* secondary text */
+  --ink-3:       #8A7F6C;  /* muted text / metadata */
+  --rule:        #D6CBB4;  /* hairline borders */
+  --rule-strong: #C2B49A;  /* emphasized borders / dividers */
+
+  --console:      #241E17; /* dark radio faceplate — header + player transport */
+  --console-2:    #302820; /* raised element on the faceplate */
+  --console-ink:  #EDE7D8; /* text on the faceplate */
+  --console-ink-2:#A99A80; /* muted text on the faceplate */
+  --console-rule: #443A2E; /* borders on the faceplate */
+
+  /* Signal — the tube-glow. Playhead, primary CTA, "on air", focus. */
+  --signal:      #E2571E;
+  --signal-2:    #C4491A;  /* hover / pressed */
+  --signal-tint: #F7DECC;  /* wash behind live/active elements */
+  --signal-ink:  #FBF8F0;  /* text on a signal fill */
+
+  /* Stations — one accent per edition, maximally separated in hue.
+     The 14 hues are spread by max-min spacing on the OKLCH circle, anchored on the three
+     original editions (which keep their exact approved values) and skipping the band around
+     signal-orange. Lightness is held at OKLCH L=0.47 here / L=0.66 in Night, which lands every
+     edition between 5.0:1 and 7.3:1 on its panel — the same band the original three occupy. */
+  --edition-tech:      #1E6E64; /* teal-green */
+  --edition-dev:       #00686E; /* cyan */
+  --edition-ai:        #2B57A6; /* broadcast blue */
+  --edition-infosec:   #8E2C33; /* oxblood */
+  --edition-product:   #5D49A0; /* violet */
+  --edition-devops:    #00657E; /* steel blue */
+  --edition-founders:  #506400; /* moss */
+  --edition-design:    #7C3D88; /* plum */
+  --edition-marketing: #8F3465; /* raspberry */
+  --edition-crypto:    #765400; /* old gold */
+  --edition-fintech:   #226D1D; /* money green */
+  --edition-it:        #675C00; /* olive */
+  --edition-data:      #006C49; /* emerald */
+  --edition-hardware:  #864900; /* brass */
+  --edition-tech-tint:      #D5E4E0;
+  --edition-dev-tint:       #CAE6E9;
+  --edition-ai-tint:        #D7E0F0;
+  --edition-infosec-tint:   #EDD6D6;
+  --edition-product-tint:   #DFDDF3;
+  --edition-devops-tint:    #CBE5EE;
+  --edition-founders-tint:  #DCE4CE;
+  --edition-design-tint:    #E9DAEC;
+  --edition-marketing-tint: #F1D8E2;
+  --edition-crypto-tint:    #EADECA;
+  --edition-fintech-tint:   #D5E5D3;
+  --edition-it-tint:        #E4E1CB;
+  --edition-data-tint:      #CFE7DA;
+  --edition-hardware-tint:  #EFDCCC;
+
+  /* Semantic */
+  --ok:   #2E7D52;
+  --warn: #B8801C;  /* also the "degraded / amber banner" state */
+  --err:  #B23A2E;
+  --ok-tint:   #D6E7DC;
+  --warn-tint: #F0E4C7;
+  --err-tint:  #EFD8D3;
+
+  /* Elevation — flat-first, one soft lift for the console */
+  --shadow-hair:  0 1px 0 var(--rule);
+  --shadow-panel: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 26px -18px rgba(40,26,12,0.35);
+  --shadow-console: 0 14px 34px -20px rgba(20,12,4,0.55);
+
+  --focus-ring: 0 0 0 3px var(--signal-tint), 0 0 0 4px var(--signal);
+
+  color-scheme: light;
+}
+
+/* ================= NIGHT BROADCAST (dark dial-glow) ======================== */
+:root[data-theme="dark"] {
+  --paper:       #161210;
+  --paper-2:     #201A15;
+  --paper-3:     #2A231C;
+  --ink:         #EFE7D6;
+  --ink-2:       #C3B7A0;
+  --ink-3:       #8A7C64;
+  --rule:        #3A3128;
+  --rule-strong: #4E4335;
+
+  --console:      #0E0B09;
+  --console-2:    #1A1510;
+  --console-ink:  #EFE7D6;
+  --console-ink-2:#8A7C64;
+  --console-rule: #2C241C;
+
+  --signal:      #F26522;  /* brighter so it reads as glow on dark */
+  --signal-2:    #FF7A3C;
+  --signal-tint: #3A2114;
+  --signal-ink:  #1A0F08;
+
+  --edition-tech:      #43A594;
+  --edition-dev:       #00A6B0;
+  --edition-ai:        #5B8DE0;
+  --edition-infosec:   #D46A6E;
+  --edition-product:   #9382DE;
+  --edition-devops:    #00A2C8;
+  --edition-founders:  #859F34;
+  --edition-design:    #B775C4;
+  --edition-marketing: #CF6D9D;
+  --edition-crypto:    #BC8806;
+  --edition-fintech:   #5DA757;
+  --edition-it:        #A4940E;
+  --edition-data:      #22AB79;
+  --edition-hardware:  #CD7C2C;
+  --edition-tech-tint:      #16302B;
+  --edition-dev-tint:       #0C2B2E;
+  --edition-ai-tint:        #172538;
+  --edition-infosec-tint:   #331C1D;
+  --edition-product-tint:   #262336;
+  --edition-devops-tint:    #0F2A33;
+  --edition-founders-tint:  #232914;
+  --edition-design-tint:    #2E2031;
+  --edition-marketing-tint: #331F28;
+  --edition-crypto-tint:    #2F2410;
+  --edition-fintech-tint:   #1C2A1A;
+  --edition-it-tint:        #292711;
+  --edition-data-tint:      #142B21;
+  --edition-hardware-tint:  #332213;
+
+  --ok:   #4FB37F;
+  --warn: #D6A63C;
+  --err:  #E0685A;
+  --ok-tint:   #16301F;
+  --warn-tint: #332A12;
+  --err-tint:  #331D18;
+
+  --shadow-hair:  0 1px 0 var(--rule);
+  --shadow-panel: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7);
+  --shadow-console: 0 16px 40px -22px rgba(0,0,0,0.8);
+
+  color-scheme: dark;
+}
+
+/* System preference as the default signal; the [data-theme] attribute (set by a
+   toggle) always wins in both directions. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #161210; --paper-2: #201A15; --paper-3: #2A231C;
+    --ink: #EFE7D6; --ink-2: #C3B7A0; --ink-3: #8A7C64;
+    --rule: #3A3128; --rule-strong: #4E4335;
+    --console: #0E0B09; --console-2: #1A1510; --console-ink: #EFE7D6;
+    --console-ink-2: #8A7C64; --console-rule: #2C241C;
+    --signal: #F26522; --signal-2: #FF7A3C; --signal-tint: #3A2114; --signal-ink: #1A0F08;
+    --edition-tech: #43A594; --edition-dev: #00A6B0; --edition-ai: #5B8DE0;
+    --edition-infosec: #D46A6E; --edition-product: #9382DE; --edition-devops: #00A2C8;
+    --edition-founders: #859F34; --edition-design: #B775C4; --edition-marketing: #CF6D9D;
+    --edition-crypto: #BC8806; --edition-fintech: #5DA757; --edition-it: #A4940E;
+    --edition-data: #22AB79; --edition-hardware: #CD7C2C;
+    --edition-tech-tint: #16302B; --edition-dev-tint: #0C2B2E; --edition-ai-tint: #172538;
+    --edition-infosec-tint: #331C1D; --edition-product-tint: #262336;
+    --edition-devops-tint: #0F2A33; --edition-founders-tint: #232914;
+    --edition-design-tint: #2E2031; --edition-marketing-tint: #331F28;
+    --edition-crypto-tint: #2F2410; --edition-fintech-tint: #1C2A1A;
+    --edition-it-tint: #292711; --edition-data-tint: #142B21; --edition-hardware-tint: #332213;
+    --ok: #4FB37F; --warn: #D6A63C; --err: #E0685A;
+    --ok-tint: #16301F; --warn-tint: #332A12; --err-tint: #331D18;
+    --shadow-panel: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7);
+    --shadow-console: 0 16px 40px -22px rgba(0,0,0,0.8);
+    color-scheme: dark;
+  }
+}

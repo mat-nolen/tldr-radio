@@ -1,0 +1,345 @@
+/* ============================================================================
+   TLDR Radio — Base / Component foundation
+   Consumes design-tokens.css. Vanilla CSS, no framework, no build step.
+   Provides the shared design-system classes the app screens apply.
+   ============================================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+[hidden] { display: none !important; }  /* beats class display rules (e.g. .on-air) */
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  background: var(--paper);
+  /* faint paper tooth so the ground reads as stock, not a flat fill */
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(90,70,40,0.045) 1px, transparent 0);
+  background-size: 4px 4px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+
+img, svg, canvas { display: block; max-width: 100%; }
+
+/* ---- Typography ----------------------------------------------------------- */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-mast);
+  color: var(--ink);
+}
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+h4 { font-size: var(--fs-md); font-weight: 700; }
+
+p { max-width: 68ch; }
+
+a { color: inherit; text-decoration-color: var(--rule-strong); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--signal); }
+
+/* Mono utility voice — metadata, counts, timestamps, keycaps, band labels */
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: var(--tracking-mono);
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-sm); }
+
+/* ---- Buttons -------------------------------------------------------------- */
+.btn {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-md);
+  background: var(--paper-3);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:hover { border-color: var(--ink-3); background: var(--paper-2); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-signal {
+  background: var(--signal);
+  border-color: var(--signal-2);
+  color: var(--signal-ink);
+  text-transform: uppercase;
+}
+.btn-signal:hover { background: var(--signal-2); border-color: var(--signal-2); }
+
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--paper-2); border-color: var(--rule); }
+
+.btn-lg { padding: var(--space-4) var(--space-6); font-size: var(--fs-base); }
+
+/* Icon button — square, for transport controls */
+.icon-btn {
+  width: 44px; height: 44px;
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--console-rule);
+  border-radius: var(--r-md);
+  background: var(--console-2);
+  color: var(--console-ink);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.06s ease;
+}
+.icon-btn:hover { background: #3b3226; }
+.icon-btn:active { transform: translateY(1px); }
+.icon-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+.icon-btn.primary { background: var(--signal); border-color: var(--signal-2); color: var(--signal-ink); width: 56px; height: 56px; }
+.icon-btn.primary svg { width: 26px; height: 26px; }
+
+/* ---- Panels & cards ------------------------------------------------------- */
+.panel {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-panel);
+}
+.panel-pad { padding: var(--space-6); }
+
+.card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  padding: var(--space-5);
+  transition: border-color 0.15s ease, transform 0.08s ease;
+}
+.card:hover { border-color: var(--rule-strong); }
+
+/* A hairline divider that carries a label ("Next up — ...") like a section rule */
+.rule-label {
+  display: flex; align-items: center; gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: var(--space-5) 0 var(--space-3);
+}
+.rule-label::after { content: ""; flex: 1; height: 1px; background: var(--rule-strong); }
+
+/* ---- Console / faceplate surfaces ----------------------------------------- */
+.console {
+  background: var(--console);
+  color: var(--console-ink);
+  border: 1px solid var(--console-rule);
+  box-shadow: var(--shadow-console);
+}
+/* Anything placed ON the faceplate must read against it in BOTH themes. The ink-*
+   scale inverts with the theme but --console stays dark, so in Daytime the default
+   near-black ink lands on near-black metal (~1.05:1). Faceplate surfaces therefore
+   take the console ink scale, not the paper one. */
+.console h1, .console h2, .console h3, .console h4 { color: var(--console-ink); }
+.console .mono, .console .eyebrow, .console .muted, .console .rule-label { color: var(--console-ink-2); }
+.console .rule-label::after { background: var(--console-rule); }
+
+/* ---- Edition badges (station chips) ---------------------------------------
+   Every edition-coloured element takes its accent from a --st custom property, which the
+   markup sets inline as `--st: var(--edition-<slug>)`. With 14 newsletters a rule per slug
+   would mean 40-odd near-identical declarations here; this way a new edition needs nothing
+   but its two colour tokens in design-tokens.css. */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid currentColor;
+  color: var(--st, var(--ink-3));
+}
+.badge::before { content: ""; width: 7px; height: 7px; border-radius: var(--r-pill); background: currentColor; }
+/* Class form kept for the static mockups, which have no JS to set --st. */
+.badge-tech    { --st: var(--edition-tech); }
+.badge-ai      { --st: var(--edition-ai); }
+.badge-infosec { --st: var(--edition-infosec); }
+
+/* Solid variant for the station preset buttons */
+.station {
+  --st: var(--ink-3);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: var(--fs-sm);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-4) var(--space-4);
+  border: 1.5px solid var(--rule-strong);
+  border-radius: var(--r-md);
+  background: var(--paper-3);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.station[aria-pressed="true"] {
+  border-color: var(--st);
+  background: color-mix(in srgb, var(--st) 10%, var(--paper-3));
+  box-shadow: inset 3px 0 0 var(--st);
+}
+.station .dot { width: 10px; height: 10px; border-radius: var(--r-pill); background: var(--st); opacity: 0.35; }
+.station[aria-pressed="true"] .dot { opacity: 1; box-shadow: 0 0 8px var(--st); }
+.station-tech    { --st: var(--edition-tech); }
+.station-ai      { --st: var(--edition-ai); }
+.station-infosec { --st: var(--edition-infosec); }
+
+/* ---- Meters & progress (job queue "signal level") ------------------------- */
+.meter {
+  height: 8px;
+  background: var(--rule);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.meter > i {
+  display: block; height: 100%;
+  background: var(--signal);
+  border-radius: var(--r-pill);
+  transition: width 0.4s ease;
+}
+
+/* Status pills for the queue lifecycle */
+.status {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--r-sm);
+  border: 1px solid transparent;
+}
+.status-queued  { color: var(--ink-3);  border-color: var(--rule-strong); }
+.status-working { color: var(--signal); border-color: var(--signal); background: var(--signal-tint); }
+.status-ready   { color: var(--ok);     border-color: var(--ok);   background: var(--ok-tint); }
+.status-failed  { color: var(--err);    border-color: var(--err);  background: var(--err-tint); }
+/* "not published yet" — a quiet, expected outcome (weekend/holiday), not an error */
+.status-skipped { color: var(--warn);    border-color: var(--warn); background: var(--warn-tint); }
+
+/* ---- "ON AIR" live indicator ---------------------------------------------- */
+.on-air {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-mono); font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--signal);
+}
+.on-air .lamp {
+  width: 9px; height: 9px; border-radius: var(--r-pill);
+  background: var(--signal); box-shadow: 0 0 0 0 var(--signal);
+  animation: air-pulse 1.8s ease-out infinite;
+}
+@keyframes air-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ---- Banners (degraded / error states) ------------------------------------ */
+.banner {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-4);
+  border: 1px solid var(--rule-strong);
+  border-left-width: 4px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
+.banner-warn { border-left-color: var(--warn); background: var(--warn-tint); }
+.banner-err  { border-left-color: var(--err);  background: var(--err-tint); }
+
+/* ---- Keycap hints --------------------------------------------------------- */
+kbd {
+  font-family: var(--font-mono); font-size: var(--fs-xs);
+  padding: 2px 7px; border-radius: var(--r-sm);
+  border: 1px solid var(--rule-strong); border-bottom-width: 2px;
+  background: var(--paper-3); color: var(--ink-2);
+}
+
+/* ---- LED-segment time readout --------------------------------------------- */
+.led {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+}
+
+/* ---- Layout helpers ------------------------------------------------------- */
+.wrap { max-width: var(--content-max); margin: 0 auto; padding: 0 var(--space-6); }
+.stack > * + * { margin-top: var(--space-4); }
+.row { display: flex; align-items: center; gap: var(--space-3); }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.muted { color: var(--ink-3); }
+.wrap-narrow { max-width: 760px; }
+
+/* ---- App shell: masthead (dark faceplate) --------------------------------- */
+.mast {
+  position: sticky; top: 0; z-index: 20;
+  border-left: 0; border-right: 0; border-top: 0;
+  border-radius: 0;
+}
+.mast-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-5); height: 68px;
+}
+.wordmark {
+  display: inline-flex; align-items: center; gap: var(--space-3);
+  font-family: var(--font-display); font-weight: 800; font-size: 1.4rem;
+  letter-spacing: -0.01em; color: var(--console-ink); text-decoration: none;
+}
+.wordmark .wm-dot {
+  width: 12px; height: 12px; border-radius: var(--r-pill);
+  background: var(--signal); box-shadow: 0 0 10px var(--signal);
+}
+.wordmark .wm-thin { font-weight: 400; color: var(--console-ink-2); letter-spacing: 0.12em; font-size: 0.9rem; }
+.mast-nav { display: flex; align-items: center; gap: var(--space-5); }
+.mast-nav a {
+  font-family: var(--font-mono); font-size: var(--fs-sm); letter-spacing: 0.04em;
+  color: var(--console-ink-2); text-decoration: none;
+}
+.mast-nav a:hover { color: var(--console-ink); }
+.mast-nav a[aria-current="page"] { color: var(--signal); }
+.theme-btn {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-family: var(--font-mono); font-size: var(--fs-sm);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--console-rule); border-radius: var(--r-md);
+  background: var(--console-2); color: var(--console-ink); cursor: pointer;
+}
+.theme-btn:hover { border-color: var(--console-ink-2); }
+.theme-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+
+/* padding-block, not the shorthand: .page always rides on .wrap, and a shorthand
+   here silently zeroed .wrap's inline gutters — every page ran flush to the edge. */
+.page { padding-block: var(--space-8) var(--space-9); }
+
+@media (max-width: 640px) {
+  .mast-nav { gap: var(--space-3); }
+  .mast-nav a { display: none; }
+  .mast-nav a[aria-current="page"], .theme-btn { display: inline-flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

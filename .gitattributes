@@ -1,0 +1,15 @@
+# Normalize line endings so a Windows checkout doesn't break things.
+#
+# This matters because of `scripts/doctor.sh`: with Git's autocrlf on Windows, a checkout
+# rewrites it to CRLF, and bash then fails on the trailing \r with an error
+# ("$'\r': command not found") that gives no hint about the real cause.
+* text=auto
+
+# Anything a shell interprets must stay LF, on every platform.
+*.sh text eol=lf
+
+# Binary — never touch these.
+*.png binary
+*.woff2 binary
+*.mp3 binary
+*.ico binary

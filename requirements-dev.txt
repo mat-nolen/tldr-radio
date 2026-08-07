@@ -1,0 +1,8 @@
+# Dev / test / QA — NOT installed in the Docker image.
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements-dev.txt
+#   playwright install chromium   # one-time, for qa/qa.py
+-r requirements.txt
+pytest
+ruff
+playwright

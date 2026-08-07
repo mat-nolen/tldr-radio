@@ -1,0 +1,20 @@
+[project]
+name = "tldr-radio"
+version = "0.1.0"
+description = "Local, $0, Docker-hosted app that turns the daily TLDR newsletters into chapterized audio episodes via Kokoro TTS."
+requires-python = ">=3.13"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# app/ package lives at the repo root (matches the Docker WORKDIR), so tests import it directly.
+pythonpath = ["."]

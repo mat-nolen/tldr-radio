@@ -1,0 +1,8 @@
+# Runtime dependencies (installed into the Docker image).
+fastapi
+uvicorn[standard]
+httpx
+beautifulsoup4
+lxml
+python-multipart
+mutagen
