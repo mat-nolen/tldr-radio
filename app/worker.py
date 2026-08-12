@@ -50,6 +50,10 @@ class Job:
     edition: str
     issue_date: str
     voice: str
+    # Captured at enqueue, like `voice` — a job builds the episode the settings described when
+    # it was queued, so a mid-run toggle can't produce a half-sponsored episode.
+    include_sponsors: bool = False
+    sponsor_voice: str | None = None
     status: JobStatus = JobStatus.QUEUED
     synth_done: int = 0
     synth_total: int = 0
@@ -63,6 +67,7 @@ class Job:
             "edition": self.edition,
             "issue_date": self.issue_date,
             "voice": self.voice,
+            "include_sponsors": self.include_sponsors,
             "status": self.status.value,
             "progress": [self.synth_done, self.synth_total],
             "error": self.error,
@@ -108,8 +113,22 @@ class JobQueue:
         for queue in list(self._subscribers):
             queue.put_nowait(job.as_event())
 
-    async def enqueue(self, edition: str, issue_date: str, voice: str) -> Job:
-        job = Job(id=self._next_id, edition=edition, issue_date=issue_date, voice=voice)
+    async def enqueue(
+        self,
+        edition: str,
+        issue_date: str,
+        voice: str,
+        include_sponsors: bool = False,
+        sponsor_voice: str | None = None,
+    ) -> Job:
+        job = Job(
+            id=self._next_id,
+            edition=edition,
+            issue_date=issue_date,
+            voice=voice,
+            include_sponsors=include_sponsors,
+            sponsor_voice=sponsor_voice,
+        )
         self._next_id += 1
         self._jobs[job.id] = job
         await self._queue.put(job)
@@ -182,7 +201,13 @@ class JobQueue:
         html = await fetch_archive(job.edition, job.issue_date, config.cache_dir)
 
         self._set(job, JobStatus.PARSING)
-        stories = real_stories(parse_edition(html))
+        parsed = parse_edition(html)
+        # The whole sponsor decision lives here: keep them and they become their own chapters
+        # downstream, drop them and nothing below this line can tell the difference. It is a
+        # build-time choice, so flipping the setting only affects the NEXT broadcast — episodes
+        # already on disk keep the shape they were built with.
+        stories = parsed if job.include_sponsors else real_stories(parsed)
+        story_count = sum(1 for s in stories if not s.is_sponsor)
 
         self._set(job, JobStatus.SCRIPTING)
         chapters = build_scripts(job.edition, job.issue_date, stories)
@@ -216,7 +241,13 @@ class JobQueue:
             self._emit(job)
 
         await synthesize_chapters(
-            self._kokoro, chapters, job.voice, out_dir, config.max_concurrent_synth, on_done
+            self._kokoro,
+            chapters,
+            job.voice,
+            out_dir,
+            config.max_concurrent_synth,
+            on_done,
+            sponsor_voice=job.sponsor_voice,
         )
 
         # Record per-chapter audio path + duration, then mark the episode ready.
@@ -227,7 +258,9 @@ class JobQueue:
                 duration = mp3_duration(path)
                 total_duration += duration
                 db.set_chapter_audio(conn, episode_id, chapter.idx, str(path), duration)
-            db.set_episode_ready(conn, episode_id, len(stories), total_duration)
+            # story_count counts real stories only — a sponsor read is not a story, and the
+            # library's "N stories" must keep matching the printed issue.
+            db.set_episode_ready(conn, episode_id, story_count, total_duration)
 
         self._set(job, JobStatus.READY)
         log.info("job %d ready → episode %d (%.0fs)", job.id, episode_id, total_duration)

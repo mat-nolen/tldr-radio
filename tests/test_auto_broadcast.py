@@ -30,9 +30,23 @@ class FakeJobs:
         job.note = "Not published yet" if job.status is JobStatus.SKIPPED else None
         job.error = "Kokoro unreachable" if job.status is JobStatus.FAILED else None
 
-    async def enqueue(self, edition: str, issue_date: str, voice: str) -> Job:
+    async def enqueue(
+        self,
+        edition: str,
+        issue_date: str,
+        voice: str,
+        include_sponsors: bool = False,
+        sponsor_voice: str | None = None,
+    ) -> Job:
         self._next_id += 1
-        job = Job(id=self._next_id, edition=edition, issue_date=issue_date, voice=voice)
+        job = Job(
+            id=self._next_id,
+            edition=edition,
+            issue_date=issue_date,
+            voice=voice,
+            include_sponsors=include_sponsors,
+            sponsor_voice=sponsor_voice,
+        )
         self._advance(job)
         self.jobs[job.id] = job
         return job
@@ -63,7 +77,12 @@ def broadcast(monkeypatch):
         monkeypatch.setattr(
             main,
             "_settings",
-            lambda: {"default_voice": "af_heart", "auto_editions": list(script)},
+            lambda: {
+                "default_voice": "af_heart",
+                "auto_editions": list(script),
+                "include_sponsors": False,
+                "sponsor_voice": "bm_george",
+            },
         )
         monkeypatch.setattr(
             main,

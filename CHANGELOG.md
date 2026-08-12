@@ -188,3 +188,42 @@ that cracked it came back from the box: *every* attempt had been Chromium.
   to be a `blob:` URL.
 - 64 tests, ruff clean, full `qa/qa.py` (4 stages) **zero issues**, `contrast_below_aa` unchanged
   at 15.
+
+## [v0.9.0] - 2026-08-12
+- **Sponsor reads are now a build-time option, off by default on this box and on for a fresh
+  install.** The motivation is not a feature request: publishing TLDR's editorial with the ads
+  stripped is the sharpest version of the copyright problem. A sponsor read is part of the issue,
+  and an audio edition that silently removes it is not a faithful one.
+- **`kind='sponsor'` — a fourth chapter type**, emitted where the newsletter puts it, not appended.
+  A sponsor is a real, skippable chapter: dashed rail, `◆` mark and a `SPONSOR` pill in the list so
+  you see one coming, and a now-playing card whose eyebrow reads *Sponsored* in place of the
+  section and `SPONSOR` in place of `STORY n / m`. The parallel is the printed issue, where your
+  eye slides past the ad block.
+- **Sponsors are never stories.** They take no section glue, no story number, and no place in the
+  intro line or `episodes.story_count`. `idx` had been doing double duty as both chapter position
+  and story number — that only worked while chapters and stories were 1:1, so the frontend now
+  derives the story number by counting `kind === 'story'`.
+- **A different voice, plus a spoken disclosure.** `SPONSOR_VOICE` defaults to `bm_george` —
+  British male against the American-female default, distinct on accent *and* register so the switch
+  lands even at 2×. Because the voice is a setting a listener can change, the disclosure is also
+  carried in the words (`"A word from our sponsor."`). `synthesize_chapters` resolves voice per
+  chapter; an unset `sponsor_voice` means "same as the main voice", not some other default.
+- **Build-time, deliberately.** Prod is CPU-bound, so synthesizing ads nobody wants is pure waste.
+  The consequence is that toggling only affects the **next** broadcast — episodes already on disk
+  keep the shape they were built with. That sentence is in the Settings panel, and QA asserts it
+  survives, because it is the one thing about this setting that will otherwise surprise you.
+- **No schema migration.** `settings` is key/value and `chapters.kind` is TEXT, so the prod DB needs
+  nothing. Settings follow the established pattern: env seeds the first read, the table wins after.
+- **🐛 Caught in my own change:** putting the pill inside `<h4>` made `h4.textContent` read
+  `"SponsorHeadline…"`, which would have silently broken QA's card-vs-list comparison — the guard
+  added in v0.7.3. The headline now has its own `.ch-head` span.
+- **Verified against live tldr.tech, not fixtures.** `2026-08-10` built with the toggle on → 2
+  sponsor chapters, `story_count=13`; `2026-08-07` built with it off → 0 sponsors, `story_count=14`;
+  and the Aug 10 episode still has its ads after the toggle went off. Sponsor voice confirmed by
+  duration (stored clip 43.824 s == `bm_george`, ≠ `af_heart` 41.016 s) — **Kokoro is not
+  byte-deterministic**, so the hash probe tried first was inconclusive.
+- 83 tests (was 64), ruff clean, full `qa/qa.py` (4 stages) **zero issues**. `contrast_below_aa`
+  measured **17 → 17** against a re-measured baseline; the 15 in older notes predates the episodes
+  now in the library. Two entries are new (`.sp-voice .eyebrow`, at the same 3.5/4.22 as the
+  `.voice-id` and `.rule-label` beside it); three fell off only because QA now leaves a sponsor
+  chapter selected, changing the measured background — not an engineered improvement.

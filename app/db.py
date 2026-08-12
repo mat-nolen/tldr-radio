@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS chapters (
   id               INTEGER PRIMARY KEY,
   episode_id       INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
   idx              INTEGER NOT NULL,          -- 0-based playback order
-  kind             TEXT    NOT NULL,          -- 'intro' | 'story' | 'outro'
+  kind             TEXT    NOT NULL,          -- 'intro' | 'story' | 'sponsor' | 'outro'
   section          TEXT,
   headline         TEXT,
   summary_source   TEXT,

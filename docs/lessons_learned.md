@@ -215,3 +215,43 @@
     silence, so it went green against code that was still broken. Both audition stages now require
     `audio.dataset.voice` to match and the source to be a `blob:` URL. Confirmed by reverting
     `app.js` and watching the stage fail with `err: 4` before keeping it.
+
+---
+
+## Issue: a TTS engine that is not byte-deterministic, and the verification that assumed it was
+- **Topic:** Testing · TTS · Verification
+- **Date:** 2026-08-12
+- **Symptom:** Needed to prove that sponsor chapters were synthesized in the *sponsor* voice and not
+  the main one. Re-synthesized the same text with both voices and compared SHA-256 against the
+  stored chapter mp3. **Neither matched.** Read naively that is "the feature is broken twice over".
+- **Cause:** Kokoro does not produce identical bytes for identical input. Synthesizing the *same
+  text in the same voice twice* gives two different files. The probe was measuring engine
+  nondeterminism, not voice identity, so it could never have returned a match.
+- **Solution:** Compare **duration** instead — a stable, voice-dependent property. The stored
+  sponsor clip was 43.824 s, exactly matching a fresh `bm_george` render and clearly apart from
+  `af_heart` at 41.016 s. Backed by a unit test using a recording fake client that captures the
+  voice argument per chapter, keyed on `script_text` rather than call order (chapters go through a
+  semaphore and `gather()`, so arrival order is not a guarantee worth asserting on).
+- **Prevention:** Before using equality of an artifact as evidence, **prove the artifact is
+  deterministic** — one control run of the same input twice would have shown this immediately, and
+  it cost a round of chasing a bug that did not exist. Where the generator is nondeterministic,
+  assert on a derived invariant (duration, length, a parsed field) or instrument the call itself.
+
+---
+
+## Issue: a decorative label inside a heading silently broke an existing QA guard
+- **Topic:** QA · Frontend
+- **Date:** 2026-08-12
+- **Symptom:** Adding a `SPONSOR` pill to the chapter row — `<h4>{pill}{headline}</h4>` — meant
+  `h4.textContent` returned `"SponsorRoll out AI-generated code…"`. The v0.7.3 QA check that the
+  now-playing card tracks the highlighted chapter compares that text to `#nc-title`, so it would
+  have started reporting a mismatch on every sponsor chapter: a *false* failure, in a guard whose
+  whole job is catching a *real* drift between the two.
+- **Cause:** `textContent` is the concatenation of every descendant. A heading that also carries a
+  badge is no longer a reliable source of "the heading's text".
+- **Solution:** Give the headline its own element — `<h4>{pill}<span class="ch-head">{headline}</span></h4>`
+  — and point the QA selector at `.ch-head`.
+- **Prevention:** When adding a child to an element something else reads text from, **check who
+  reads it**. Grepping the selector (`.chapter h4`) across `qa/` found this before the run did. The
+  broader habit: a decorative element inside a semantic one should be a sibling of a dedicated text
+  node, not a bare prepend.

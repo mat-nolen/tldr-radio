@@ -186,7 +186,9 @@ def test_jobs_route_refuses_an_unknown_slug(settings_db, monkeypatch):
     enqueued: list[str] = []
 
     class FakeJobs:
-        async def enqueue(self, edition, issue_date, voice):
+        async def enqueue(
+            self, edition, issue_date, voice, include_sponsors=False, sponsor_voice=None
+        ):
             enqueued.append(edition)
             return main.Job(id=1, edition=edition, issue_date=issue_date, voice=voice)
 

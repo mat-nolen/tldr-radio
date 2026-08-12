@@ -6,7 +6,8 @@ never a hardcoded section list:
   - a story is an `<article class="mt-3">` → `<a href><h3>headline (N minute read)</h3></a>`
     followed by `<div class="newsletter-html">summary</div>`
   - a section divider is an `<h3 class="text-center font-bold">` between articles
-  - sponsored items carry `(Sponsor)` in the headline → flagged, dropped before scripting
+  - sponsored items carry `(Sponsor)` in the headline → flagged here, kept or dropped by the
+    caller (`real_stories`) according to the `include_sponsors` setting
 
 An unknown section name passes through untouched (degrades, doesn't crash). Zero non-sponsor
 stories raises EmptyParseError so we never emit a short episode silently.
@@ -91,5 +92,9 @@ def parse_edition(html: str) -> list[Story]:
 
 
 def real_stories(stories: list[Story]) -> list[Story]:
-    """Drop sponsored items (spec §4)."""
+    """Drop sponsored items (spec §4).
+
+    Also the health signal for the parser: story counts are always counts of *these*, never of
+    sponsor reads, so enabling sponsors can't quietly inflate a short issue into a healthy one.
+    """
     return [s for s in stories if not s.is_sponsor]

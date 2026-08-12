@@ -73,6 +73,21 @@
   @media (max-width: 520px) {
     .st-head, .st-row { grid-template-columns: minmax(0, 1fr) 3.2rem 3.2rem; gap: var(--space-2); }
   }
+  /* Sponsor reads */
+  .sp-toggle { display: flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+  .sp-toggle input { accent-color: var(--signal); width: 18px; height: 18px; cursor: pointer; flex: none; }
+  /* --ink-2, not --ink-3: this is the sentence that explains why nothing changed in the
+     Library after saving, which makes it content rather than fine print. */
+  .sp-note {
+    margin: var(--space-3) 0 var(--space-5); max-width: 62ch;
+    color: var(--ink-2); font-size: var(--fs-sm); text-wrap: pretty;
+  }
+  .sp-voice { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-5); }
+  .sp-voice select {
+    font-family: var(--font-mono); font-size: var(--fs-sm);
+    padding: var(--space-2) var(--space-3); border: 1px solid var(--rule-strong);
+    border-radius: var(--r-md); background: var(--paper-3); color: var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -117,6 +132,38 @@
 
     <p class="mono muted st-est" id="station-estimate"></p>
     <button class="btn btn-signal" id="save-stations">Save stations</button>
+  </section>
+
+  <!-- Sponsor reads -->
+  <section class="panel panel-pad" style="margin-bottom:var(--space-7)">
+    <div class="row-between">
+      <h3>Sponsor reads</h3>
+      <span class="mono muted">applies to the next broadcast</span>
+    </div>
+    <p class="muted" style="margin:var(--space-3) 0 var(--space-5);max-width:62ch">
+      TLDR is paid for by its sponsors. Keep them in and each one becomes its own chapter you can
+      see coming and skip — read in a different voice, and opened with a spoken disclosure, so an
+      ad is never mistaken for the news.
+    </p>
+    <label class="sp-toggle">
+      <input type="checkbox" id="include-sponsors">
+      <span>Include sponsor reads in new episodes</span>
+    </label>
+    <!-- The one thing about this setting that will otherwise surprise you. -->
+    <p class="sp-note" id="sponsor-note">
+      Decided when an episode is built, so this only affects the <strong>next</strong> broadcast —
+      episodes already in your Library keep the form they were made with.
+    </p>
+
+    <div class="sp-voice">
+      <label class="eyebrow" for="sponsor-voice">Sponsor voice</label>
+      <select id="sponsor-voice"></select>
+      <button class="audition" id="sponsor-audition" data-voice="">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Audition
+      </button>
+    </div>
+
+    <button class="btn btn-signal" id="save-sponsors">Save sponsor reads</button>
   </section>
 
   <div class="settings-grid">

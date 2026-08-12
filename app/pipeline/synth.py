@@ -79,11 +79,16 @@ async def synthesize_chapters(
     out_dir: Path,
     concurrency: int = 4,
     on_done: Callable[[int, int], Awaitable[None]] | None = None,
+    sponsor_voice: str | None = None,
 ) -> list[Path]:
     """Synthesize one mp3 per chapter (`<out_dir>/<idx>.mp3`), ≤`concurrency` at once.
 
-    Each chapter object needs `.idx` and `.script_text`. `on_done(done, total)` is awaited
-    after each chapter finishes, for progress reporting. Returns paths in chapter order.
+    Each chapter object needs `.idx`, `.kind` and `.script_text`. `on_done(done, total)` is
+    awaited after each chapter finishes, for progress reporting. Returns paths in chapter order.
+
+    `sponsor_voice` reads sponsor chapters in a different voice — an audible ad disclosure, the
+    way radio has always done it. Falls back to `voice` when unset, so a caller that doesn't
+    care about sponsors keeps the old single-voice behaviour.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     sem = asyncio.Semaphore(concurrency)
@@ -91,11 +96,16 @@ async def synthesize_chapters(
     done = 0
     results: list[Path | None] = [None] * total
 
+    def voice_for(chapter) -> str:
+        if sponsor_voice and getattr(chapter, "kind", None) == "sponsor":
+            return sponsor_voice
+        return voice
+
     async def worker(position: int, chapter) -> None:
         nonlocal done
         async with sem:
             path = out_dir / f"{chapter.idx}.mp3"
-            await client.synthesize(chapter.script_text, voice, path)
+            await client.synthesize(chapter.script_text, voice_for(chapter), path)
             results[position] = path
         done += 1
         if on_done is not None:

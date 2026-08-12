@@ -146,6 +146,27 @@
   }
   .chapter .num { font-family: var(--font-mono); color: var(--console-ink-2); font-size: var(--fs-sm); }
   .chapter[data-current="true"] .num { color: var(--signal); }
+
+  /* Sponsor reads are real, visible chapters — you can see one coming and skip it, the way
+     your eye slides past the ad block in the newsletter. Marked with a dashed rail and a pill
+     rather than a colour of its own: all 14 station hues are spoken for and --signal means
+     "playing". Long-hand border properties so the more specific current-state rule below can
+     recolour the rail without the shorthand winning on source order. */
+  .chapter[data-kind="sponsor"] {
+    border-left-width: 3px; border-left-style: dashed; border-left-color: var(--console-ink-2);
+    padding-left: calc(var(--space-3) - 2px);   /* keep the text on the same rail as a story */
+  }
+  .chapter[data-kind="sponsor"][data-current="true"] { border-left-color: var(--signal); }
+  /* Full-strength ink, not --console-ink-2: this is the label that says "ad", so it is the one
+     thing in the row that must never be the faint bit. */
+  .sponsor-pill {
+    display: inline-block; margin-right: var(--space-2); vertical-align: 0.08em;
+    font-family: var(--font-mono); font-size: var(--fs-xs); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--console-ink);
+    border: 1px solid var(--console-rule); border-radius: var(--r-pill); padding: 1px 8px;
+  }
+  .now-chapter[data-kind="sponsor"] { border-left-style: dashed; border-left-color: var(--console-ink-2); }
+  .now-chapter[data-kind="sponsor"] .nc-pos { color: var(--console-ink); }
   .chapter h4 { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-base); line-height: 1.25; }
   .chapter .side { display: flex; align-items: center; gap: var(--space-3); }
   .chapter details { margin-top: var(--space-2); }

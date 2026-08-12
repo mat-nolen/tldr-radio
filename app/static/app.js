@@ -306,6 +306,10 @@ window.TLDR = window.TLDR || {};
   const saveVoice = document.getElementById('save-voice');
   const retention = document.getElementById('retention');
   const saveRetention = document.getElementById('save-retention');
+  const includeSponsors = document.getElementById('include-sponsors');
+  const sponsorVoice = document.getElementById('sponsor-voice');
+  const sponsorAudition = document.getElementById('sponsor-audition');
+  const saveSponsors = document.getElementById('save-sponsors');
   // Attached to the DOM (hidden) so QA can assert on playback state — a bare `new Audio()`
   // is invisible to Playwright.
   const audio = new Audio();
@@ -352,7 +356,28 @@ window.TLDR = window.TLDR || {};
       }
       list.appendChild(g);
     }
+
+    // Sponsor voice is a compact <select>, not a second 54-row browsable list — it's a
+    // secondary choice, and one audition button beside it is enough to hear it.
+    if (sponsorVoice) {
+      sponsorVoice.innerHTML = '';
+      for (const id of voices.slice().sort()) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = `${nameOf(id)} · ${id}`;
+        opt.selected = id === settings.sponsor_voice;
+        sponsorVoice.appendChild(opt);
+      }
+      syncSponsorAudition();
+    }
+    if (includeSponsors) includeSponsors.checked = !!settings.include_sponsors;
   }
+
+  /** Point the sponsor Audition button at whatever the dropdown currently shows. */
+  function syncSponsorAudition() {
+    if (sponsorAudition && sponsorVoice) sponsorAudition.dataset.voice = sponsorVoice.value;
+  }
+  sponsorVoice?.addEventListener('change', syncSponsorAudition);
 
   // 8 ms of silence, 8 kHz mono 8-bit PCM. Playing this *inside* the click unlocks the audio
   // element; after that the element will accept a programmatic src + play() with no further
@@ -384,9 +409,11 @@ window.TLDR = window.TLDR || {};
   // So: unlock the element on the gesture with a silent clip (no network), then fetch the real
   // one at our leisure and hand the element a blob it can decode immediately. The media loader
   // never waits on the server, so the synth can take as long as it likes.
-  list.addEventListener('click', async e => {
+  // Delegated from the document, not the voice list, so the sponsor-voice Audition button in
+  // its own panel runs the exact same unlock-then-fetch path rather than a second copy of it.
+  document.addEventListener('click', async e => {
     const btn = e.target.closest('.audition');
-    if (!btn) return;
+    if (!btn || !btn.dataset.voice) return;
     const url = '/api/voices/audition/' + encodeURIComponent(btn.dataset.voice);
 
     // Everything up to the first await must stay synchronous — the gesture is spent otherwise.
@@ -440,6 +467,19 @@ window.TLDR = window.TLDR || {};
         body: JSON.stringify({ default_voice: sel.value }),
       });
       flash(saveVoice, 'Save default voice');
+    });
+  }
+  if (saveSponsors) {
+    saveSponsors.addEventListener('click', async () => {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          include_sponsors: includeSponsors.checked,
+          sponsor_voice: sponsorVoice.value,
+        }),
+      });
+      flash(saveSponsors, 'Save sponsor reads');
     });
   }
   if (saveRetention) {
@@ -710,8 +750,12 @@ window.TLDR = window.TLDR || {};
         d.textContent = c.section;
         chaptersEl.appendChild(d);
       }
-      const num = c.kind === 'story' ? String(++n).padStart(2, '0') : (c.kind === 'intro' ? '▶' : '■');
-      const head = c.kind === 'story' ? c.headline : (c.kind === 'intro' ? 'Intro' : 'Outro');
+      // Sponsors carry a headline like a story but take no number — they are interstitial, so
+      // the "story n of m" count steps over them and keeps matching the printed issue.
+      const MARK = { intro: '▶', outro: '■', sponsor: '◆' };
+      const named = c.kind === 'story' || c.kind === 'sponsor';
+      const num = c.kind === 'story' ? String(++n).padStart(2, '0') : MARK[c.kind];
+      const head = named ? (c.headline || 'Sponsor') : (c.kind === 'intro' ? 'Intro' : 'Outro');
       chapterInfo.set(c.idx, {
         chapter: c,
         head,
@@ -723,10 +767,14 @@ window.TLDR = window.TLDR || {};
         ? `<span class="mono" title="clip length · time saved vs reading the full article">${fmt(c.duration_seconds)}${saves}</span>`
         : '';
       const link = c.url ? `<a class="readmore" href="${c.url}" target="_blank" rel="noopener">read more ↗</a>` : '';
+      const pill = c.kind === 'sponsor' ? '<span class="sponsor-pill">Sponsor</span>' : '';
       const row = document.createElement('div');
       row.className = 'chapter';
       row.dataset.idx = c.idx;
-      row.innerHTML = `<span class="num">${num}</span><div><h4>${esc(head)}</h4>${src}</div><div class="side">${timing}${link}</div>`;
+      row.dataset.kind = c.kind;
+      // Headline in its own span: the pill is a label, not part of the heading's text, and
+      // anything reading the headline back (QA compares it to the card) must not get "Sponsor".
+      row.innerHTML = `<span class="num">${num}</span><div><h4>${pill}<span class="ch-head">${esc(head)}</span></h4>${src}</div><div class="side">${timing}${link}</div>`;
       row.addEventListener('click', ev => { if (ev.target.closest('a, summary, details')) return; loadChapter(c.idx, 0, true); });
       chaptersEl.appendChild(row);
     }
@@ -739,7 +787,9 @@ window.TLDR = window.TLDR || {};
     const info = chapterInfo.get(Number(idx));
     if (!info) { nowChapter.hidden = true; return; }
     const c = info.chapter;
-    ncSection.textContent = c.section || '';
+    // The eyebrow normally names the section; a sponsor has none, so it carries the disclosure.
+    nowChapter.dataset.kind = c.kind;
+    ncSection.textContent = c.kind === 'sponsor' ? 'Sponsored' : (c.section || '');
     ncPos.textContent = info.pos;
     ncTitle.textContent = info.head;
     ncSource.textContent = c.summary_source || '';

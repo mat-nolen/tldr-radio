@@ -264,9 +264,30 @@ def browser_qa():
             page.uncheck(f'#station-list input[data-kind="desk"][data-slug="{slug}"]')
             if page.is_checked(f'#station-list input[data-kind="auto"][data-slug="{slug}"]'):
                 note(f"settings: clearing Desk for {slug} left Auto checked")
+        # Sponsor reads. The note is asserted on, not just measured: it is the only thing that
+        # explains why the Library doesn't change after saving, and losing it is a silent
+        # regression that no other check would catch.
+        sponsor_opts = len(page.query_selector_all("#sponsor-voice option"))
+        R["pages"]["settings"]["sponsor_toggle"] = bool(page.query_selector("#include-sponsors"))
+        R["pages"]["settings"]["sponsor_voice_options"] = sponsor_opts
+        R["pages"]["settings"]["sponsor_note"] = page.eval_on_selector(
+            "#sponsor-note", "e=>e.textContent.trim()")[:120]
+        if not sponsor_opts:
+            note("settings: sponsor voice dropdown did not populate")
+        if sponsor_opts and sponsor_opts != len(page.query_selector_all("#voice-list .voice-row")):
+            note("settings: sponsor voice list and main voice list offer different voices")
+        # The Audition button must follow the dropdown, or it auditions the wrong voice.
+        if page.query_selector("#sponsor-voice") and sponsor_opts > 1:
+            second = page.eval_on_selector("#sponsor-voice option:nth-child(2)", "e=>e.value")
+            page.select_option("#sponsor-voice", second)
+            if page.get_attribute("#sponsor-audition", "data-voice") != second:
+                note("settings: sponsor Audition button did not follow the dropdown")
+        if "next" not in R["pages"]["settings"]["sponsor_note"].lower():
+            note("settings: sponsor note no longer says the change applies to the next broadcast")
         capture(page, "settings", [
             ".voice-name", ".voice-id", ".rule-label", ".audition",
             ".st-name", ".st-tag", ".st-desc", ".st-head span", "#station-estimate",
+            ".sp-toggle span", ".sp-note", ".sp-voice select", ".sp-voice .eyebrow",
         ])
 
         # ---- Player: iterate every episode ----
@@ -303,13 +324,28 @@ def browser_qa():
             except Exception:
                 note(f"episode {ep_id}: chapters did not render")
                 continue
+            sponsors = page.query_selector_all('#chapters .chapter[data-kind="sponsor"]')
             R["episodes"].append({
                 "ep": ep_id,
                 "title": page.eval_on_selector("#ep-title", "e=>e.textContent"),
                 "chapters": len(page.query_selector_all("#chapters .chapter")),
                 "dividers": len(page.query_selector_all("#chapters .rule-label")),
                 "read_more_links": len(page.query_selector_all("#chapters a.readmore")),
+                "sponsor_chapters": len(sponsors),
             })
+            # A sponsor you can't see coming is one you can't skip — the pill is the whole
+            # point of putting ads in the list rather than hiding them.
+            if len(sponsors) != len(page.query_selector_all("#chapters .sponsor-pill")):
+                note(f"episode {ep_id}: sponsor chapters without a Sponsor pill")
+            if sponsors:
+                sponsors[0].click()
+                page.wait_for_timeout(300)
+                if page.get_attribute("#now-chapter", "data-kind") != "sponsor":
+                    note(f"episode {ep_id}: sponsor chapter did not mark the now-playing card")
+                if page.eval_on_selector("#nc-section", "e=>e.textContent").strip() != "Sponsored":
+                    note(f"episode {ep_id}: sponsor card is not labelled Sponsored")
+                if page.eval_on_selector("#nc-pos", "e=>e.textContent").strip() != "SPONSOR":
+                    note(f"episode {ep_id}: sponsor card shows a story position")
 
         # ---- Playback test on the first episode ----
         if ep_ids:
@@ -325,7 +361,7 @@ def browser_qa():
                 page.query_selector('#chapters .chapter[data-current="true"]'))
             # The now-playing card must track the highlighted chapter, not lag behind it.
             current_head = page.eval_on_selector(
-                '#chapters .chapter[data-current="true"] h4', "e=>e.textContent")
+                '#chapters .chapter[data-current="true"] .ch-head', "e=>e.textContent")
             card_head = page.eval_on_selector("#nc-title", "e=>e.textContent")
             R["playback"]["now_chapter_title"] = card_head
             if current_head != card_head:
@@ -339,6 +375,7 @@ def browser_qa():
                 "#nc-section", "#nc-title", "#nc-source", "#nc-meta", "#nc-link",
                 "#chapters .rule-label", "#chapters .chapter h4", "#chapters .chapter .num",
                 "#chapters .chapter summary", "#chapters a.readmore",
+                ".sponsor-pill", '#chapters .chapter[data-kind="sponsor"] .ch-head',
                 '#chapters .chapter[data-current="true"] h4',
                 '#chapters .chapter[data-current="true"] .num',
                 # Both day-header states: the resting one is a control and must read

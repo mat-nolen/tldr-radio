@@ -121,6 +121,10 @@ class SettingsRequest(BaseModel):
     # Which newsletters are offered on the Desk, and which run overnight (auto ⊆ desk).
     desk_editions: list[str] | None = None
     auto_editions: list[str] | None = None
+    # Sponsor reads. Applied at build time, so a change lands on the NEXT broadcast — episodes
+    # already on disk keep whatever they were built with.
+    include_sponsors: bool | None = None
+    sponsor_voice: str | None = None
 
 
 # --------------------------------------------------------------------------- helpers
@@ -144,6 +148,11 @@ def _settings() -> dict:
                 db.get_setting(conn, "retention_days", str(config.retention_days))
             ),
             "playback_speed": db.get_setting(conn, "playback_speed", "1.0"),
+            "include_sponsors": db.get_setting(
+                conn, "include_sponsors", "1" if config.include_sponsors else "0"
+            )
+            == "1",
+            "sponsor_voice": db.get_setting(conn, "sponsor_voice", config.sponsor_voice),
         }
     auto = editions.known(auto)
     # Auto implies Desk — an edition can't broadcast nightly while being invisible on the Desk.
@@ -195,7 +204,13 @@ async def _run_auto_broadcast() -> None:
         if existing is not None and existing["status"] == "ready":
             results[edition] = {"status": "already-ready", "error": None, "note": None}
         else:
-            active[edition] = await jobs.enqueue(edition, today, voice)
+            active[edition] = await jobs.enqueue(
+                edition,
+                today,
+                voice,
+                include_sponsors=settings["include_sponsors"],
+                sponsor_voice=settings["sponsor_voice"],
+            )
 
     attempts = 0
     while active:
@@ -369,7 +384,8 @@ async def create_jobs(req: JobRequest) -> dict:
     Slugs are checked against the catalog first — an unknown one would otherwise queue a job
     that fetches a URL tldr.tech will never serve and report it as "not published".
     """
-    voice = req.voice or _settings()["default_voice"]
+    settings = _settings()
+    voice = req.voice or settings["default_voice"]
     wanted = editions.known(req.editions)
     rejected = sorted(set(req.editions) - set(wanted))
     if rejected:
@@ -384,7 +400,13 @@ async def create_jobs(req: JobRequest) -> dict:
             continue
         if existing is not None and req.regenerate:
             _delete_episode(existing["id"])
-        job = await jobs.enqueue(edition, req.date, voice)
+        job = await jobs.enqueue(
+            edition,
+            req.date,
+            voice,
+            include_sponsors=settings["include_sponsors"],
+            sponsor_voice=settings["sponsor_voice"],
+        )
         created.append(job.as_event())
     return {"created": created, "skipped": skipped, "rejected": rejected}
 
@@ -480,6 +502,10 @@ async def put_settings(req: SettingsRequest) -> dict:
             db.set_setting(conn, "retention_days", str(req.retention_days))
         if req.playback_speed is not None:
             db.set_setting(conn, "playback_speed", req.playback_speed)
+        if req.include_sponsors is not None:
+            db.set_setting(conn, "include_sponsors", "1" if req.include_sponsors else "0")
+        if req.sponsor_voice is not None:
+            db.set_setting(conn, "sponsor_voice", req.sponsor_voice)
         # Unknown slugs are dropped rather than rejected: a retired edition left in an old
         # payload shouldn't 400 the whole save.
         if req.desk_editions is not None:
