@@ -13,8 +13,10 @@ services:
     environment:
       KOKORO_URL: http://kokoro:8880
       DATA_DIR: /data
-      RETENTION_DAYS: "14"
-      DEFAULT_VOICE: af_heart
+      RETENTION_DAYS: "${RETENTION_DAYS:-14}"
+      DEFAULT_VOICE: "${DEFAULT_VOICE:-af_heart}"
+      INCLUDE_SPONSORS: "${INCLUDE_SPONSORS:-true}"
+      SPONSOR_VOICE: "${SPONSOR_VOICE:-bm_george}"
       MAX_CONCURRENT_SYNTH: "${MAX_CONCURRENT_SYNTH:-4}"
       AUTO_BROADCAST_TIME: "${AUTO_BROADCAST_TIME:-}"
       AUTO_BROADCAST_EDITIONS: "${AUTO_BROADCAST_EDITIONS:-tech,ai,infosec}"

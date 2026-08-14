@@ -97,6 +97,23 @@ A library grouped by day, one chapter per story with its section heading, the so
 link to the original. Transport with ±15 s, speed up to 2.5×, auto-advance, resume where you left
 off, and keyboard shortcuts. Every clip tells you roughly how much reading time it saved.
 
+**Download** hands you the whole episode as a single tagged mp3 — album, title and author set, so
+it shelves properly in a podcast or audiobook app instead of showing up as a filename. The chapter
+files are joined without re-encoding, so there's no quality loss and no `ffmpeg` in the image.
+
+### Sponsor reads
+
+TLDR is funded by its sponsors, so this reads them out rather than quietly deleting them. Each one
+becomes **its own chapter you can see coming and skip** — the audio equivalent of your eye sliding
+past the ad block in the email — marked with a pill in the list, read in a **different voice**, and
+opened with a spoken "a word from our sponsor" so an ad is never mistaken for the news.
+
+Sponsors are never counted as stories: the story numbering, the intro line and the episode's story
+count all step over them and keep matching the printed issue.
+
+It's on by default. Turn it off in **Settings → Sponsor reads** — but note it's applied when an
+episode is *built*, so it affects the next broadcast rather than what's already in your Library.
+
 ### Two themes
 
 Daytime Paper and Night Broadcast, both contrast-checked. Follows your system by default; the
@@ -144,8 +161,10 @@ override.
 | `AUTO_BROADCAST_TIME` | *(off)* | `HH:MM` local time to build episodes overnight, e.g. `06:00`. Blank disables. |
 | `AUTO_BROADCAST_EDITIONS` | `tech,ai,infosec` | **Seed only** — the initial line-up on a fresh install. Afterwards Settings → Stations owns it. |
 | `AUTO_BROADCAST_RETRY_HOURS` | `4` | How long to keep re-checking a newsletter that isn't posted yet (~25 min apart). `0` = one shot. |
-| `RETENTION_DAYS` | `14` | Days to keep episodes, mp3s and cache before the nightly prune. |
-| `DEFAULT_VOICE` | `af_heart` | Default voice; changeable per broadcast. |
+| `RETENTION_DAYS` | `14` | **Seed only** — days to keep episodes, mp3s and cache before the nightly prune. Afterwards Settings owns it. |
+| `DEFAULT_VOICE` | `af_heart` | **Seed only** — default voice; changeable per broadcast and in Settings. |
+| `INCLUDE_SPONSORS` | `true` | **Seed only** — read sponsor segments as their own skippable chapters. Afterwards Settings → Sponsor reads owns it. Applied at build time, so it affects the next broadcast. |
+| `SPONSOR_VOICE` | `bm_george` | **Seed only** — voice for sponsor reads, deliberately distinct from `DEFAULT_VOICE` so an ad is audible as one. |
 | `NTFY_URL` | *(off)* | Webhook pinged when the overnight run finishes or fails. An [ntfy](https://ntfy.sh) topic works as-is. |
 | `PLEX_URL` / `PLEX_TOKEN` | *(off)* | Only if you share the machine with a Plex server — warns before a manual broadcast if Plex is streaming. |
 
@@ -224,8 +243,12 @@ Newsreader and Space Mono, self-hosted.
 ## Credits & license
 
 - Newsletter content belongs to **[TLDR](https://tldr.tech)** — this only reads their public
-  archive pages, and drops sponsored items. If you enjoy the newsletters,
+  archive pages, and it reads the **sponsor segments too** (see [Sponsor reads](#sponsor-reads)),
+  because their sponsors are what pay for the writing. If you enjoy the newsletters,
   [subscribe](https://tldr.tech).
+- **Keep it to yourself.** This is a personal listening tool. Publishing the audio — a public feed,
+  a podcast directory, YouTube — would be redistributing someone else's work, and crediting them
+  isn't a licence. Ask them first.
 - Speech by **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)** (Apache-2.0), served via
   **[Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI)**.
 

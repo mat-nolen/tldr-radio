@@ -227,3 +227,70 @@ that cracked it came back from the box: *every* attempt had been Chromium.
   now in the library. Two entries are new (`.sp-voice .eyebrow`, at the same 3.5/4.22 as the
   `.voice-id` and `.rule-label` beside it); three fell off only because QA now leaves a sponsor
   chapter selected, changing the measured background — not an engineered improvement.
+
+## [v0.9.1] - 2026-08-12
+- **Phones had no navigation at all.** The masthead hid every nav link below 640px *except*
+  `[aria-current="page"]` — a link to the page you are already on — so the one link a phone kept
+  was the only useless one. Opening an episode stranded you on the player. Every iPhone width is
+  below that breakpoint; iPad portrait at 768px is above it, which is why the tablet looked fine.
+  Links now all stay, and the space comes out of decoration instead: the wordmark drops "RADIO",
+  the theme button drops its text label (keeping its icon and `aria-label`), and under 360px the
+  wordmark reduces to the signal dot.
+- Nav links get a **44px touch target at every width**, not just on phones — an iPad is a touch
+  device too and the 68px masthead absorbs it.
+- **Console title** no longer breaks "TLDR Tech — 2026-08-10" across three lines by splitting the
+  date at its own hyphen; smaller type on mobile plus a nowrap span on the date.
+- **Transport** was a wrapping flex row, so Next fell to a second line while Previous stayed on the
+  first — the two most-used controls, separated. Fixed two-row grid now.
+- **New `mobile_qa` stage** drives WebKit at four real device sizes and asserts an *off-page* link
+  is reachable, nothing scrolls sideways, tap targets clear 44px, and the transport stays one row
+  (comparing vertical centres — the play button is deliberately larger). Both guards were verified
+  by watching them fail against the old CSS: 21 issues, and a 62px transport spread. Desktop-only
+  QA cannot see a media query it never triggers.
+
+## [v0.10.0] - 2026-08-13
+- **Download a whole episode as one tagged mp3** — `GET /api/episodes/{id}/download`, plus a button
+  on the player. Until now audio could only be copied off the box by hand, one file per story.
+- **No `ffmpeg`, and that was the gating question.** mp3s join by plain byte-append; verified
+  against three independent decoders — `mutagen` and CoreAudio (`afinfo`, the parser iOS audio apps
+  use) both at 387.360 s, and WebKit seeking exactly to 10 s / 200 s / 380 s in the result.
+- **It works because of two properties, and both are now asserted on every build.** Kokoro emits
+  identical CBR frames with **no Xing/Info header**: a Xing header would make every decoder report
+  *chapter 0's* duration for the whole file, and VBR would seek wrongly while still playing.
+  `assert_concatenable` fails loudly and names the file if either changes.
+- Each chapter carries a 45-byte ID3v2 tag; appended as-is, 16 of them are counted as audio and
+  drifted a 6.5-minute episode by 45 ms. Every tag but the first is stripped.
+- **Built on demand, cached beside the chapters.** The backlog assumed disk-vs-CPU, but joining is
+  a byte copy rather than a re-encode — so only episodes actually downloaded cost disk, and
+  retention/delete already `rmtree` that directory. Written to a temp name and renamed, so a crash
+  mid-write can't leave a truncated file that later looks like a valid cache hit.
+- **Tagged for an audiobook shelf**, not a podcast feed: album groups an edition, title identifies
+  the episode, `TPE1` fills the author field most audiobook apps display. Without these it lands as
+  a bare filename.
+- **🐛 Found by the new icon guard, pre-existing:** `base.css` gives `svg { max-width: 100% }`, so
+  an icon inside a stretched flex button shrinks to **zero width** while still reporting visible.
+  It hid the new Download icon — and the Settings audition icons had been doing the same at 375px,
+  unnoticed, since the voice picker was built.
+- 109 tests (was 64 at v0.8.1), ruff clean, QA five stages zero issues — **run against the Docker
+  stack, not just bare metal**, since the combined file is written into the mounted `/data` volume.
+
+## [v0.10.1] - 2026-08-13
+- **🐛 Fixed: `.env` settings that silently did nothing in Docker.** `docker-compose.yml` never
+  forwarded `INCLUDE_SPONSORS` or `SPONSOR_VOICE` to the app container, so the v0.10.0 deploy
+  instruction ("set `INCLUDE_SPONSORS=false` to keep prod ad-free") had no effect — the value fell
+  through to the code default and the box came up serving sponsor reads. **Found on the plexbox,
+  not here**: nothing errors, the setting is simply ignored, and only a real deploy following the
+  written instruction exposes it.
+- Same fix applied to **`DEFAULT_VOICE` and `RETENTION_DAYS`**, which were pinned to literals
+  (`af_heart`, `"14"`) and equally un-overridable. All four are now `${VAR:-default}` passthroughs
+  with identical defaults, so nothing changes unless someone sets them.
+- All four documented in `.env.example`, which had never mentioned them.
+- **`tests/test_compose_env.py` guards the whole class**: every variable `config.py` reads must
+  appear in compose's app `environment:`, be a `${...}` passthrough rather than a pinned literal,
+  and be documented in `.env.example` — with a short allowlist for the three the container fixes
+  on purpose (`DATA_DIR`, `KOKORO_URL`, `APP_PORT`). Verified by reverting compose to the shipped
+  state and watching 6 tests fail. `os.environ.get` in Python and a line in compose are two halves
+  of one contract, and nothing was checking it.
+- Verified inside the container, not just by reading the file: with `INCLUDE_SPONSORS=false`,
+  `config.include_sponsors` is `False` in the running image.
+- 144 tests (was 109), ruff clean.

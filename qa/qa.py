@@ -22,6 +22,7 @@ R = {
     "audition": {},
     "contrast": {},
     "contrast_below_aa": [],
+    "mobile": {},
     "issues": [],
 }
 
@@ -363,6 +364,31 @@ def browser_qa():
             current_head = page.eval_on_selector(
                 '#chapters .chapter[data-current="true"] .ch-head', "e=>e.textContent")
             card_head = page.eval_on_selector("#nc-title", "e=>e.textContent")
+            # Download must be offered on a ready episode, point at the right route, and be
+            # tappable — it exists to get audio onto a phone, so a sub-44px control is a bug.
+            dl = page.query_selector("#ep-download:not([hidden])")
+            if dl is None:
+                note("player: no download control on a ready episode")
+            else:
+                box = dl.bounding_box() or {"height": 0}
+                href = dl.get_attribute("href") or ""
+                R["playback"]["download_href"] = href
+                R["playback"]["download_height"] = round(box["height"])
+                if "/download" not in href:
+                    note(f"player: download control points at {href!r}")
+                if box["height"] < 44:
+                    note(f"player: download control is {round(box['height'])}px tall, under 44")
+                head = httpx.get(f"{BASE}{href}", timeout=120, follow_redirects=True)
+                cd = head.headers.get("content-disposition", "")
+                R["playback"]["download_bytes"] = len(head.content)
+                R["playback"]["download_disposition"] = cd
+                if head.status_code != 200:
+                    note(f"player: download returned HTTP {head.status_code}")
+                elif "attachment" not in cd or ".mp3" not in cd:
+                    note(f"player: download is not an attachment ({cd!r}) — it will play, not save")
+                elif not head.content.startswith((b"ID3", b"\xff")):
+                    note("player: download did not return mp3 data")
+
             R["playback"]["now_chapter_title"] = card_head
             if current_head != card_head:
                 note(f"now-playing card shows {card_head!r}, chapter list {current_head!r}")
@@ -400,6 +426,106 @@ def browser_qa():
             if over[0] > over[1]:
                 note(f"{name}: horizontal overflow — scrollWidth {over[0]} > viewport {over[1]}")
             capture(page, name)
+        b.close()
+
+
+#: Real iPhone viewports. All are below the 640px masthead breakpoint; the iPad is above it and
+#: is here to prove the phone rules do not bleed into the tablet layout.
+PHONES = [
+    ("iphone-se", 375, 667),
+    ("iphone-14", 390, 844),
+    ("iphone-15-pro-max", 430, 932),
+    ("ipad-portrait", 768, 1024),
+]
+MIN_TAP = 44  # Apple HIG minimum touch target, in CSS px
+
+
+def mobile_qa():
+    """Drive the real pages at phone widths in WebKit — the engine an iPhone actually runs.
+
+    This stage exists because a shipped bug got past every other one: the masthead hid all nav
+    links except `[aria-current="page"]` below 640px, i.e. it kept only the link to the page you
+    were already on. Every page was a dead end on a phone, and nothing here was looking at a
+    viewport that narrow. Desktop-only QA cannot see a media query it never triggers.
+    """
+    with sync_playwright() as p:
+        b = p.webkit.launch(headless=True)
+        for label, w, h in PHONES:
+            ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=2,
+                                is_mobile=True, has_touch=True)
+            page = ctx.new_page()
+            for path in ("index.html", "player.html", "settings.html"):
+                page.goto(f"{BASE}/{path}", wait_until="load")
+                page.wait_for_timeout(400)
+                got = page.evaluate("""() => {
+                  const links = [...document.querySelectorAll('.mast-nav a')];
+                  const shown = links.filter(a => {
+                    const r = a.getBoundingClientRect();
+                    return getComputedStyle(a).display !== 'none' && r.width > 0 && r.height > 0;
+                  });
+                  const small = shown.filter(a => a.getBoundingClientRect().height < 44)
+                                     .map(a => a.textContent.trim());
+                  const de = document.documentElement;
+                  return {
+                    total: links.length,
+                    shown: shown.map(a => a.textContent.trim()),
+                    reachable: shown.filter(a => !a.hasAttribute('aria-current')).length,
+                    smallTargets: small,
+                    overflow: de.scrollWidth > de.clientWidth,
+                  };
+                }""")
+                # An icon inside a stretched flex button can be shrunk to zero width and vanish
+                # while still reporting visible — caught exactly that on the Download control.
+                collapsed = page.evaluate("""() => {
+                  const out = [];
+                  for (const svg of document.querySelectorAll('button svg, a.btn svg')) {
+                    const host = svg.closest('button, a');
+                    if (!host || host.hasAttribute('hidden')) continue;
+                    if (host.offsetParent === null) continue;
+                    const r = svg.getBoundingClientRect();
+                    if (r.height > 0 && r.width < 1) {
+                      out.push((host.id || host.className || host.tagName).toString().slice(0, 40));
+                    }
+                  }
+                  return out;
+                }""")
+                if collapsed:
+                    note(f"mobile {label}/{path}: icons collapsed to zero width in {collapsed}")
+
+                key = f"{label}/{path}"
+                R["mobile"][key] = got
+                # The actual regression: at least one link OFF this page must be tappable.
+                if got["reachable"] < got["total"] - 1:
+                    note(f"mobile {key}: only {got['shown']} reachable — "
+                         f"{got['total'] - 1} off-page links expected, "
+                         f"{got['reachable']} usable. Dead end.")
+                if got["overflow"]:
+                    note(f"mobile {key}: page scrolls sideways")
+                if got["smallTargets"]:
+                    note(f"mobile {key}: nav targets under {MIN_TAP}px: {got['smallTargets']}")
+
+            # Transport must stay one row: Previous and Next are the two most-used controls and
+            # wrapping split them across lines. Compare vertical CENTRES — the play button is
+            # deliberately larger, so its top edge legitimately differs from its neighbours'.
+            page.goto(f"{BASE}/player.html", wait_until="load")
+            try:
+                page.wait_for_selector(".transport .icon-btn", timeout=10000)
+            except Exception:
+                note(f"mobile {label}: transport never rendered")
+                ctx.close()
+                continue
+            rows = page.evaluate("""() => {
+              const c = [...document.querySelectorAll('.transport .icon-btn')]
+                .map(b => { const r = b.getBoundingClientRect(); return r.top + r.height / 2; });
+              return {centres: c, spread: Math.round(Math.max(...c) - Math.min(...c)),
+                      count: c.length};
+            }""")
+            R["mobile"][f"{label}/transport"] = rows
+            if rows["spread"] > 4:
+                note(f"mobile {label}: transport buttons span {rows['spread']}px vertically "
+                     f"— controls have wrapped onto separate rows")
+            page.screenshot(path=f"{OUT}/mobile-{label}.png", full_page=False)
+            ctx.close()
         b.close()
 
 
@@ -461,7 +587,7 @@ def audition_stall_qa():
         b.close()
 
 
-for stage in (audio_sweep, browser_qa, audition_qa, audition_stall_qa):
+for stage in (audio_sweep, browser_qa, mobile_qa, audition_qa, audition_stall_qa):
     try:
         stage()
     except Exception as exc:  # one dead stage must not cost us every other result

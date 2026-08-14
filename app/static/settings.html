@@ -26,7 +26,9 @@
     background: var(--paper-3); color: var(--ink); cursor: pointer;
   }
   .audition:hover { border-color: var(--signal); color: var(--signal); }
-  .audition svg { width: 14px; height: 14px; fill: currentColor; }
+  /* flex:none — on a 375px screen the row squeezes this button and the icon, being a flex
+     item with base.css's max-width:100%, collapsed to zero width and simply disappeared. */
+  .audition svg { width: 14px; height: 14px; flex: none; fill: currentColor; }
   .pick { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: var(--fs-sm); }
   .pick input { accent-color: var(--signal); width: 18px; height: 18px; }
   .retain-field { display: flex; flex-direction: column; gap: 8px; margin: var(--space-4) 0; }

@@ -255,3 +255,81 @@
   reads it**. Grepping the selector (`.chapter h4`) across `qa/` found this before the run did. The
   broader habit: a decorative element inside a semantic one should be a sibling of a dedicated text
   node, not a bare prepend.
+
+---
+
+## Issue: mp3s can be concatenated by byte-append — but only because of two properties worth checking
+- **Topic:** Audio · TTS · Dependencies
+- **Date:** 2026-08-13
+- **Symptom / question:** Downloading an episode needs one file, not 17 chapters. The assumption
+  worth testing was whether `ffmpeg` had to enter the Docker image to join them.
+- **Finding:** It does not. Kokoro emits identical frames per chapter (24 kHz mono, MPEG-2
+  Layer III, 128 kbps CBR) and a plain byte-append produces a valid file — confirmed by three
+  independent decoders: `mutagen` 387.360 s, CoreAudio (`afinfo`, the parser iOS/macOS audio apps
+  use) 387.360 s, and WebKit at 387.36 s seeking exactly to 10 s / 200 s / 380 s.
+- **The two properties it depends on**, both now asserted on every build in `assert_concatenable`:
+  1. **No Xing/Info header.** That header carries a frame count for the whole file. With one
+     present, every decoder reads *chapter 0's* duration and reports it for the join — the classic
+     "concatenated mp3 shows the wrong length and seeks into nowhere". Kokoro happens not to write
+     one; an upgrade that started to would break this silently.
+  2. **Constant bitrate.** Without a Xing header a decoder derives position from byte offset, which
+     is only accurate for CBR. VBR would still play but seek wrongly — the worse failure, because
+     it looks fine until you scrub.
+- **Detail that is easy to miss:** each chapter carries a 45-byte ID3v2 tag. Byte-appending
+  embeds one mid-stream per chapter, where a decoder counts it as audio. Left in, 16 of them
+  drifted a 6.5-minute episode by 45 ms — trivial once, but it means the reported length is never
+  quite right and it scales with chapter count. Strip every tag but the first.
+- **Prevention:** When a format trick works, write down *why* it works and assert it, rather than
+  recording that it worked. The guard costs one `MP3()` read per chapter and turns a future silent
+  breakage into a loud, specific error naming the file and the reason.
+
+---
+
+## Issue: an icon inside a stretched flex button collapses to zero width and vanishes
+- **Topic:** Frontend · Responsive · QA
+- **Date:** 2026-08-13
+- **Symptom:** The new Download button rendered as text with no icon on a phone, while looking
+  right on desktop. The `<svg>` reported `visibility: visible` and a height of 15px — but a width
+  of **0**.
+- **Cause:** `base.css` sets `img, svg, canvas { max-width: 100% }`. Inside a flex button that has
+  been stretched (`flex: 1`), the svg is itself a flex item with the default `flex-shrink: 1`, so
+  it is free to shrink — and does, all the way to nothing. Nothing reports an error; the element
+  is simply zero-width.
+- **Solution:** `flex: none` on the icon.
+- **Prevention:** A general QA check now walks every visible `button svg` / `a.btn svg` at phone
+  widths and flags any with height but no width. It immediately found a **pre-existing** instance
+  of the same bug — the Settings page's Audition icons had been collapsing at 375px, unnoticed,
+  since the voice picker was built. A guard written for a new bug is worth pointing at the old code
+  too; this one paid for itself on its first run.
+
+---
+
+## Issue: a setting added in Python but never forwarded by Compose — documented, and silently ignored
+- **Topic:** Docker · Config · Deploy
+- **Date:** 2026-08-13
+- **Symptom:** v0.9.0 added `INCLUDE_SPONSORS`, and the deploy notes told prod to set
+  `INCLUDE_SPONSORS=false` in the box's `.env` to keep it ad-free. The box came up with sponsor
+  reads **on**. Nothing errored, nothing logged, and the app was behaving perfectly correctly —
+  it had simply never been handed the variable.
+- **Cause:** `docker-compose.yml`'s app service has an explicit `environment:` block and no
+  `env_file:`. A Compose service sees **only what it is handed**, so a variable absent from that
+  block does not exist inside the container no matter what `.env` says. `config.py` fell through
+  to its code default (`True`).
+- **Why local testing could never catch it:** bare-metal dev reads the developer's own shell
+  environment, so the variable resolves. The gap only exists in the container, and only for
+  someone following the documented instruction — which is to say, only in production.
+- **Not one variable, but a class.** Auditing every name `config.py` reads against compose found
+  `SPONSOR_VOICE` missing too (added in the same release, unreported), plus `DEFAULT_VOICE` and
+  `RETENTION_DAYS` pinned to literals — `KEY: "value"` rather than `KEY: "${KEY:-value}"` — and
+  therefore equally impossible to override.
+- **Solution:** forward all four as `${VAR:-default}`, document them in `.env.example`, and add
+  `tests/test_compose_env.py`: every variable `config.py` reads must be present in compose, be a
+  passthrough rather than a literal, and appear in `.env.example`, with a short allowlist for the
+  three the container fixes deliberately (`DATA_DIR`, `KOKORO_URL`, `APP_PORT`). Verified by
+  reverting compose to the shipped state and watching six tests fail.
+- **Prevention:** `os.environ.get` in code and a line in `docker-compose.yml` are **two halves of
+  one contract**, and adding only the first looks complete while being half-done. Where two files
+  must agree and nothing enforces it, write the test that enforces it — the guard here is
+  mechanical, runs in milliseconds, and would have caught the bug the moment the setting was
+  added. Also worth noting: the failure mode of a missing env var is *silence*, not an error, so
+  "it started up fine" proves nothing about configuration.

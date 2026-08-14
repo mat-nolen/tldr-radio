@@ -514,6 +514,7 @@ window.TLDR = window.TLDR || {};
   const subEl = document.getElementById('ep-sub');
   const voiceEl = document.getElementById('ep-voice');
   const [prevBtn, back15, playBtn, fwd15, nextBtn] = document.querySelectorAll('.transport .icon-btn');
+  const dlBtn = document.getElementById('ep-download');
   const nowChapter = document.getElementById('now-chapter');
   const ncSection = document.getElementById('nc-section');
   const ncPos = document.getElementById('nc-pos');
@@ -686,9 +687,27 @@ window.TLDR = window.TLDR || {};
     if (!data.episode) return;
     ep = data;
     order = ep.chapters.map(c => c.idx);
-    if (titleEl) titleEl.textContent = ep.episode.title;
+    // "TLDR Tech — 2026-08-10". The date must never break at its own hyphens ("2026-" / "08-10"),
+    // which is what a plain text node does in a narrow column, so it gets a nowrap span and the
+    // line breaks at the em-dash instead.
+    if (titleEl) {
+      const m = /^(.*?)(\s+—\s+)(\S+)$/.exec(ep.episode.title);
+      titleEl.innerHTML = m
+        ? `${esc(m[1])} <span class="ep-date">— ${esc(m[3])}</span>`
+        : esc(ep.episode.title);
+    }
     if (subEl) subEl.textContent = `${ep.episode.story_count} stories · ${fmt(ep.episode.duration_seconds)} total`;
     if (voiceEl) voiceEl.textContent = `VOICE · ${ep.episode.voice}`;
+    if (dlBtn) {
+      // Only offer it once the audio exists — the route 409s on a half-built episode, and a
+      // button that returns an error page is worse than one that isn't there yet.
+      const ready = ep.episode.status === 'ready';
+      dlBtn.hidden = !ready;
+      if (ready) {
+        dlBtn.href = `/api/episodes/${ep.episode.id}/download`;
+        dlBtn.title = `Download the whole episode as one mp3 (${fmt(ep.episode.duration_seconds)})`;
+      }
+    }
     renderChapters();
     highlightEp(id);
     const pb = ep.playback;
@@ -708,6 +727,7 @@ window.TLDR = window.TLDR || {};
     if (titleEl) titleEl.textContent = 'No episode selected';
     if (subEl) subEl.textContent = '';
     if (voiceEl) voiceEl.textContent = '';
+    if (dlBtn) { dlBtn.hidden = true; dlBtn.removeAttribute('href'); }
     if (led) led.textContent = fmt(0);
     if (totalEl) totalEl.textContent = ' / ' + fmt(0);
     if (needle) needle.style.left = '0%';

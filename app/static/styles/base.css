@@ -315,6 +315,9 @@ kbd {
 .wordmark .wm-thin { font-weight: 400; color: var(--console-ink-2); letter-spacing: 0.12em; font-size: 0.9rem; }
 .mast-nav { display: flex; align-items: center; gap: var(--space-5); }
 .mast-nav a {
+  /* 44px tall at every width, not just on phones: an iPad is a touch device too, and the
+     68px masthead absorbs the height without changing the layout. */
+  display: inline-flex; align-items: center; min-height: 44px;
   font-family: var(--font-mono); font-size: var(--fs-sm); letter-spacing: 0.04em;
   color: var(--console-ink-2); text-decoration: none;
 }
@@ -334,10 +337,32 @@ kbd {
    here silently zeroed .wrap's inline gutters — every page ran flush to the edge. */
 .page { padding-block: var(--space-8) var(--space-9); }
 
+/* Phone masthead. The previous rule here hid every nav link EXCEPT `[aria-current="page"]` —
+   which is a link to the page you are already on, so a phone was left with no way off any
+   screen: open an episode and you were stranded on the player. Every link now stays, and the
+   width comes out of decoration instead — the wordmark's "RADIO" and the theme button's text
+   label, neither of which is navigation. Links get a 44px hit target (Apple HIG minimum),
+   which the 68px masthead absorbs without growing. */
 @media (max-width: 640px) {
+  .mast-inner { gap: var(--space-3); }
+  .mast-nav { gap: var(--space-4); }
+  .mast-nav a {
+    padding-inline: 2px;
+    font-size: var(--fs-xs); letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .wordmark { font-size: 1.15rem; gap: var(--space-2); }
+  .wordmark .wm-thin { display: none; }
+  /* Icon-only, still labelled for assistive tech by the button's own aria-label. Scoped to
+     .theme-btn so the Settings page's full-width theme button keeps its text. */
+  .theme-btn { padding: var(--space-2); min-width: 44px; min-height: 44px; justify-content: center; }
+  .theme-btn [data-theme-label] { display: none; }
+}
+
+/* Narrower than an iPhone SE: drop the wordmark's text but keep the signal dot, which is
+   enough of a home affordance. Navigation is the last thing to go, not the first. */
+@media (max-width: 360px) {
+  .wordmark { font-size: 0; gap: 0; }
   .mast-nav { gap: var(--space-3); }
-  .mast-nav a { display: none; }
-  .mast-nav a[aria-current="page"], .theme-btn { display: inline-flex; }
 }
 
 @media (prefers-reduced-motion: reduce) {

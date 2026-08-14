@@ -74,6 +74,18 @@
     padding: 4px 9px; border: 1px solid var(--console-rule); border-radius: var(--r-sm);
     color: var(--console-ink-2);
   }
+  .now-aside { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-3); flex: none; }
+  .ep-date { white-space: nowrap; }
+  /* Console colours, not the paper .btn palette — this sits on the dark faceplate in both
+     themes, the same trap that made the chapter list invisible in Daytime at v0.7.3. */
+  .dl-btn {
+    background: var(--console-2); border-color: var(--console-rule); color: var(--console-ink);
+    min-height: 44px; text-decoration: none; white-space: nowrap;
+  }
+  .dl-btn:hover { background: #3b3226; border-color: var(--console-ink-2); }
+  /* flex:none or the icon silently collapses to 0 width when the button is stretched on a
+     phone — svg is a flex item here and base.css gives it max-width:100%, so it is shrinkable. */
+  .dl-btn svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; }
 
   /* The tuner dial (signature) */
   .tuner {
@@ -183,6 +195,28 @@
     .chapter .side { grid-column: 2; margin-top: var(--space-2); }
     .now-chapter { padding: var(--space-4); }
     .nc-head { flex-wrap: wrap; }
+
+    /* 32px display type broke "TLDR Tech — 2026-08-10" across three lines, splitting the
+       date at its own hyphen ("2026-08-" / "10"). Smaller type lets it break at the em-dash,
+       where a title is supposed to break. (.ep-date keeps the date itself intact.) */
+    #ep-title { font-size: var(--fs-lg); line-height: 1.15; }
+
+    /* Stack the header on a phone: side by side, the voice chip and Download squeezed the
+       title into a third of the width and it wrapped to three lines again. */
+    .now-head { flex-direction: column; align-items: stretch; gap: var(--space-4); }
+    .now-aside { flex-direction: row; align-items: center; justify-content: flex-start; }
+    .dl-btn { flex: 1; justify-content: center; }
+
+    /* The transport was a wrapping flex row, so Next fell to a second line while Previous
+       stayed on the first — the two controls you use most, split apart. Fixed two-row grid:
+       all five buttons stay together and evenly spread, readout and speed sit beneath. */
+    .transport {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      justify-items: center; gap: var(--space-4) var(--space-2);
+    }
+    .transport .spacer { display: none; }
+    .transport .time-readout { grid-column: 1 / 4; justify-self: start; }
+    .transport .speed { grid-column: 4 / 6; justify-self: end; }
   }
 </style>
 </head>
@@ -218,7 +252,16 @@
           <h2 id="ep-title">Select an episode</h2>
           <p class="mono muted" id="ep-sub"></p>
         </div>
-        <span class="voice-chip" id="ep-voice">VOICE</span>
+        <div class="now-aside">
+          <span class="voice-chip" id="ep-voice">VOICE</span>
+          <!-- A plain link, not a fetch: Safari on iOS hands a normal navigation with
+               Content-Disposition straight to the download manager and into Files. Anything
+               clever (blob, fetch + createObjectURL) is worse there, not better. -->
+          <a class="btn dl-btn" id="ep-download" download hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></svg>
+            Download
+          </a>
+        </div>
       </div>
 
       <div class="tuner" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="664" aria-valuenow="42">

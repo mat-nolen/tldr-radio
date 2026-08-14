@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from . import db, editions, plex, retention
 from .config import APP_ROOT, config
+from .pipeline.concat import NotConcatenableError, concat_mp3s, write_tags
 from .pipeline.fetch import fetch_archive
 from .pipeline.parse import parse_edition, real_stories
 from .pipeline.script import build_scripts
@@ -468,6 +469,65 @@ async def episode_detail(episode_id: int) -> dict:
 async def delete_episode(episode_id: int) -> dict:
     _delete_episode(episode_id)
     return {"deleted": episode_id}
+
+
+# --------------------------------------------------------------------------- download
+def _download_name(edition: str, issue_date: str) -> str:
+    """`tldr-tech-2026-08-10.mp3` — sorts chronologically inside an edition, safe everywhere."""
+    slug = re.sub(r"[^a-z0-9]+", "-", f"tldr-{edition}".lower()).strip("-")
+    return f"{slug}-{issue_date}.mp3"
+
+
+@app.get("/api/episodes/{episode_id}/download")
+async def download_episode(episode_id: int) -> FileResponse:
+    """Serve the whole episode as one tagged mp3, building and caching it on first request.
+
+    Built on demand rather than at broadcast time. The backlog assumed this trade was
+    "disk vs CPU on a box that has little to spare", but joining is a byte copy, not a
+    re-encode — a few MB, milliseconds — so only episodes actually downloaded cost any disk,
+    and the file lands beside its chapters where retention and delete already remove it.
+    """
+    with db.connect(config.db_path) as conn:
+        episode = db.get_episode(conn, episode_id)
+        if episode is None:
+            raise HTTPException(status_code=404, detail="No such episode")
+        if episode["status"] != "ready":
+            raise HTTPException(status_code=409, detail="Episode is not ready yet")
+        chapters = db.get_chapters(conn, episode_id)
+
+    ep_dir = config.audio_dir / str(episode_id)
+    combined = ep_dir / "episode.mp3"
+    filename = _download_name(episode["edition"], episode["issue_date"])
+
+    if not combined.exists():
+        paths = [ep_dir / f"{c['idx']}.mp3" for c in chapters]
+        missing = [p.name for p in paths if not p.exists()]
+        if not paths or missing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Episode audio is incomplete (missing {', '.join(missing) or 'all'})",
+            )
+        try:
+            await asyncio.to_thread(concat_mp3s, paths, combined)
+            await asyncio.to_thread(
+                write_tags,
+                combined,
+                edition_name=editions.name_for(episode["edition"]),
+                issue_date=episode["issue_date"],
+                story_count=int(episode["story_count"]),
+            )
+        except NotConcatenableError as exc:
+            # The audio stopped being safe to byte-append — a Kokoro change, most likely.
+            # Say so rather than serving a file that plays wrong.
+            log.error("episode %d cannot be joined: %s", episode_id, exc)
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return FileResponse(
+        combined,
+        media_type="audio/mpeg",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # --------------------------------------------------------------------------- audio (Range-capable)
