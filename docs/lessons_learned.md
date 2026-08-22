@@ -6,6 +6,35 @@
 > Global lessons learned (Python): ~/.claude/global/python/
 > Global lessons learned (Shared): ~/.claude/global/shared/
 
+## Issue: a video in a GitHub README cannot be a file in the repo
+- **Date:** 2026-08-21
+- **Topic:** Web
+- **Problem:** The obvious way to put the demo video at the top of the README — commit the mp4 and
+  point at it, with `![...](demo/demo.mp4)` or `<video src="demo/demo.mp4">` — produces a dead
+  player for every visitor. So does a `raw.githubusercontent.com` link, and so does a release
+  asset. None of them error; you get a broken box or a plain link.
+- **The rule is in a header, not the docs.** `curl -sI https://github.com/<any-repo>` returns a
+  `content-security-policy` whose `media-src` names exactly which hosts may supply audio or video:
+  `github.com`, the `*user-images.githubusercontent.com` family, the user-asset S3 bucket, and
+  `gist.github.com`. `raw.githubusercontent.com` and `release-assets.githubusercontent.com` appear
+  under `img-src` but **not** `media-src` — which is why an image loads from a path that a video
+  cannot. Checking the header took ten seconds and settled it without a single trial push.
+- **Fix:** upload the file through a comment box on github.com (an issue form, or the comment box
+  under any commit — the issue never has to be submitted; the asset is stored the moment the
+  upload bar finishes and survives deleting the issue). GitHub returns a bare
+  `https://github.com/user-attachments/assets/<uuid>` URL. Put that URL on its own line in the
+  markdown — no link syntax, no `<video>` tag — and the renderer expands it into
+  `<video controls>` on the fly, minting a fresh 300-second signed URL per page load.
+- **Do the upload from a PUBLIC repo.** The asset inherits the visibility of the repo it was
+  uploaded to. From a private one you get a `private-user-images…?jwt=…` URL that renders for you
+  and 404s for everybody else — the failure only shows up when you are logged out.
+- **GitHub renders README video with `muted="muted"`.** For anything whose point is sound, the
+  demo silently fails: the visitor presses play, sees a working UI making no noise, and concludes
+  it is broken. The caption has to tell them to unmute.
+- **Lesson:** when a platform silently refuses to render something, read its CSP before
+  experimenting. It is a machine-readable statement of what is allowed, it is one `curl -I` away,
+  and it beats a sequence of guess-and-push commits into a public repo's history.
+
 ## Issue: `asyncio.gather` turns one transient blip into a lost 15-minute build
 - **Date:** 2026-08-18
 - **Topic:** Async
