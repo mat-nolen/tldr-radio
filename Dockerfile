@@ -16,4 +16,5 @@ ENV APP_PORT=7777 \
     PYTHONUNBUFFERED=1
 
 EXPOSE 7777
+USER 1000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7777"]
