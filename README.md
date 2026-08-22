@@ -6,7 +6,13 @@ Pick a day, hit **Broadcast**, and a few minutes later there are chapterized epi
 your browser — one per newsletter, each story its own track. Runs entirely on your own machine:
 **no accounts, no API keys, no cloud, no LLM, $0.**
 
-![The player — library by day, tuner transport, and the story you're currently hearing](docs/images/player-dark.png)
+https://github.com/user-attachments/assets/8fe5d6ef-fee5-405e-8807-dc3c742a7f4d
+
+*Two minutes of the real app — pick a date, hit **Broadcast**, then listen: story chapters,
+sponsor reads and all.*
+
+Featured at [22:22 in **Top 10 GitHub**](https://www.youtube.com/watch?v=SQrFue3LbwI&t=1342)
+on The Next New Thing.
 
 ---
 
