@@ -9,7 +9,8 @@ your browser — one per newsletter, each story its own track. Runs entirely on 
 https://github.com/user-attachments/assets/8fe5d6ef-fee5-405e-8807-dc3c742a7f4d
 
 *Two minutes of the real app — pick a date, hit **Broadcast**, then listen: story chapters,
-sponsor reads and all.*
+sponsor reads and all.* **Turn the sound on** — GitHub starts embedded video muted, and this one
+is worth hearing.
 
 Featured at [22:22 in **Top 10 GitHub**](https://www.youtube.com/watch?v=SQrFue3LbwI&t=1342)
 on The Next New Thing.
