@@ -6,6 +6,42 @@
 > Global lessons learned (Python): ~/.claude/global/python/
 > Global lessons learned (Shared): ~/.claude/global/shared/
 
+## Issue: `asyncio.gather` turns one transient blip into a lost 15-minute build
+- **Date:** 2026-08-18
+- **Topic:** Async
+- **Problem:** Kokoro dropped a connection mid-body during the `ai` 2026-08-17 build
+  (`httpx.RemoteProtocolError: peer closed connection without sending complete message body`).
+  `KokoroClient.synthesize` had no retry, so that one chapter raised; `synthesize_chapters` used
+  `asyncio.gather(...)` without `return_exceptions`, so the exception propagated instantly and the
+  whole episode was marked failed — **after roughly twenty of its chapters were already written to
+  disk**. On prod an edition costs 8–15 minutes and `ai` runs nightly.
+- **Two separate faults, and the second is the sneaky one.** No retry is the obvious bug. But
+  `gather` does not *cancel* the siblings when one task raises — it merely stops awaiting them.
+  They stay scheduled, keep consuming CPU on an episode that is already dead, and keep writing
+  mp3s into the directory the automatic retry is about to reuse.
+- **Fix:** retry transient failures only (`httpx.TransportError`, 429, 5xx) with exponential
+  backoff, 4 attempts; never retry a 4xx. Replace `gather` with `asyncio.TaskGroup`, which cancels
+  siblings — then unwrap the resulting `ExceptionGroup` and re-raise the original exception,
+  because the worker records `type(exc).__name__: exc` on the job and prod reads that string.
+  "ExceptionGroup: unhandled errors in a TaskGroup" names neither the failure nor the chapter.
+- **Lesson:** retry is safe exactly when the operation is a pure function of its inputs — synthesis
+  is (same text, same voice), so there was never a correctness argument against it, only an absent
+  one. And when a fan-out has a failure path, decide explicitly what happens to the *other* branches;
+  `gather`'s default is to abandon rather than cancel, which is almost never what you want.
+
+## Issue: a test that passes against the broken code proves nothing
+- **Date:** 2026-08-18
+- **Topic:** pytest
+- **Problem:** The test written for the sibling-cancellation fix passed against the **old,
+  unfixed** code. `asyncio.run()` cancels leftover tasks when it tears the loop down, so an
+  assertion made after the run cannot distinguish a task that was cancelled by the TaskGroup from
+  one that was merely orphaned by `gather` and killed at shutdown.
+- **Fix:** make the observation *inside* the same loop — catch the expected exception, then
+  `await asyncio.sleep(...)` long enough that an orphan would finish and record itself, and assert
+  it did not. With that change the test fails on the old code and passes on the new.
+- **Lesson:** the only way to know a test tests anything is to run it against the bug. Reverting
+  the fix and watching seven of eight go red took a minute and caught one test that was decorative.
+
 ## Issue: hwdsl2/kokoro-server arm64 image crashes on Apple Silicon (CUDA torch)
 - **Date:** 2026-07-23
 - **Topic:** Packaging

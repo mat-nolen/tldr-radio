@@ -1,5 +1,26 @@
 # Version History
 
+## [v0.10.2] - 2026-08-18
+- **Fix: one dropped Kokoro connection no longer destroys a whole episode.** `KokoroClient.synthesize`
+  now retries transient failures (any `httpx.TransportError` — dropped connection, timeout, protocol
+  error — plus 429 and 5xx) up to **4 attempts** with 1s/2s/4s backoff. A 4xx is never retried: the
+  request is wrong and will be wrong again. Found in the wild 2026-08-17 when the `ai` edition died on
+  `RemoteProtocolError: peer closed connection without sending complete message body` **after ~20 of
+  its chapters were already on disk**; prod builds `ai` nightly and it is the largest edition.
+- **Fix: a permanently failed chapter now cancels its siblings.** `synthesize_chapters` used
+  `asyncio.gather`, which stops waiting on a failure but leaves the other chapters running — burning
+  CPU on a dead episode and writing mp3s into a directory the retry is about to reuse. Now an
+  `asyncio.TaskGroup`, which cancels them, with the underlying exception unwrapped from the
+  `ExceptionGroup` so the job still records `RemoteProtocolError: …` rather than "unhandled errors
+  in a TaskGroup" — prod reads that string.
+- The mp3 is written only after a complete read, so a dropped connection cannot leave a truncated
+  file for the concatenator to trip over.
+- **144 → 152 tests.** The seven that matter were verified by reverting the fix and watching them
+  fail; the eighth is a regression guard on the unwrapping. Verified end to end **in Docker** against
+  real Kokoro: `tech 2026-08-04`, 15 stories, 17 chapters, 345 s of audio, none truncated, no errors.
+- Tooling (not shipped in the image): `scripts/demo_{capture,cards,build}.py` generate the demo video,
+  `scripts/demo_stage.sh` stages a window for a hand-driven screen recording. See `docs/demo-video.md`.
+
 ## [v0.1.0] - 2026-07-23
 - Initial project setup via `/start-python`
 - Finalized `spec.md` from the portable brief; approved the "Broadcast Desk" design system
