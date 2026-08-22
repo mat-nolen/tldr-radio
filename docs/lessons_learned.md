@@ -6,6 +6,32 @@
 > Global lessons learned (Python): ~/.claude/global/python/
 > Global lessons learned (Shared): ~/.claude/global/shared/
 
+## Issue: dropping root in a container moves the problem to the host's file ownership
+- **Date:** 2026-08-22
+- **Topic:** Packaging
+- **Problem:** An automated scanner reported the obvious and correct thing — no `USER` directive in
+  the `Dockerfile`, so the app ran as root (CWE-250) — and supplied the obvious one-line patch,
+  `USER 1000` before `CMD`. Merging that would have broken production.
+- **Why the one-liner is a trap.** The app writes only to `/data`, and `/data` is a **host bind
+  mount**. While the process is root it can write to the mount whatever the host thinks; the moment
+  it is uid 1000, the *host* directory's owner decides. The patch created no account, chowned
+  nothing, and picked a uid on the assumption that it matched the host.
+- **And the test environment hides it.** Docker Desktop on macOS remaps bind-mount permissions, so
+  the change works locally no matter who owns the directory. On a Linux host it does not. A green
+  local run would have been evidence of nothing — the same asymmetry that let a missing Compose
+  variable reach production in v0.10.1.
+- **Fix:** create the account properly (`groupadd`/`useradd` at a fixed uid) rather than switching
+  to a bare number; let the host override it (`user: "${APP_UID:-1000}:${APP_GID:-1000}"` in
+  compose) so a mismatch is fixable in `.env` rather than by rebuilding; and **check writability at
+  startup** — one `touch`/`unlink` probe on the data directory, raising an error that names the
+  uid, the reason and both remedies. Without the probe the first symptom is a job dying part-way
+  through, hours later, reported as a sqlite error.
+- **Lesson:** a security patch that changes *who the process is* changes every permission that
+  process depends on, and those live outside the image where no scanner can see them. Take the
+  finding, do not take the patch. And when a change can only fail on the machine you cannot test
+  on, spend the extra few lines making the failure loud — a startup refusal that prints the fix is
+  worth more than a correct patch that fails quietly at 3 a.m.
+
 ## Issue: a video in a GitHub README cannot be a file in the repo
 - **Date:** 2026-08-21
 - **Topic:** Web

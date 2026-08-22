@@ -6,6 +6,11 @@
 services:
   app:
     build: .
+    # The image runs as uid/gid 1000 (see the Dockerfile). ./data below is a host bind mount, so
+    # the HOST directory's owner decides who may write. Override these in .env if ./data belongs
+    # to someone else — `id -u` and `id -g` on the host give the two numbers. Getting it wrong is
+    # not silent: the app refuses to start and names the fix.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     ports:
       - "7777:7777"
     volumes:

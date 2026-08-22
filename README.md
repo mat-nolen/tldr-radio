@@ -174,6 +174,17 @@ override.
 | `SPONSOR_VOICE` | `bm_george` | **Seed only** — voice for sponsor reads, deliberately distinct from `DEFAULT_VOICE` so an ad is audible as one. |
 | `NTFY_URL` | *(off)* | Webhook pinged when the overnight run finishes or fails. An [ntfy](https://ntfy.sh) topic works as-is. |
 | `PLEX_URL` / `PLEX_TOKEN` | *(off)* | Only if you share the machine with a Plex server — warns before a manual broadcast if Plex is streaming. |
+| `APP_UID` / `APP_GID` | `1000` | Who the app runs as inside the container. Only needed on a Linux host where `./data` belongs to someone other than uid 1000 — see below. |
+
+### Who the container runs as
+
+The app runs as a non-root user, uid/gid **1000**. Since `./data` is a bind mount from your
+machine, the host directory's owner is what actually decides whether episodes can be written.
+
+On macOS and Windows this never comes up — Docker Desktop remaps mount permissions. On Linux, if
+`./data` belongs to a different account, run `id -u` and `id -g` and set `APP_UID` / `APP_GID` in
+`.env` to match (or `sudo chown -R 1000:1000 data`). If you get it wrong the app says so and
+refuses to start, rather than failing halfway through a broadcast.
 
 ### Stations
 

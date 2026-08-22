@@ -1,5 +1,28 @@
 # Version History
 
+## [v0.10.3] - 2026-08-22
+- **Security: the container no longer runs as root.** The `Dockerfile` had no `USER` directive, so
+  uvicorn ran as root inside the container (CWE-250). Reported on the public repo by an automated
+  scanner the day after the project was featured (`#2` / `#3`). The image now creates `appuser`
+  (uid/gid 1000) and switches to it; nothing in the app needs root, and every runtime write goes to
+  `/data`.
+- **The directive alone would have broken production.** `/data` is a host bind mount, so once the
+  app stops being root the *host* directory's owner decides whether anything can be written. The
+  reported patch (`USER 1000`, no account created, no ownership handling) would have passed on
+  macOS — Docker Desktop remaps mount permissions — and failed on the Linux box, which is the same
+  dev/prod asymmetry as the v0.10.1 compose variable.
+- **So a permission mismatch is now loud instead of silent.** `ensure_data_dir_writable` runs
+  before anything else in the app's lifespan and refuses to start with a message that names the
+  uid, the reason and both fixes. Without it the first symptom would have been a broadcast dying
+  part-way through, hours later, with a stack trace about sqlite.
+- **`APP_UID` / `APP_GID` in compose** let a host whose `./data` belongs to someone else fix it in
+  `.env` instead of rebuilding the image. Documented in `.env.example`.
+- **152 → 159 tests.** The three static guards were verified by reverting to the old Dockerfile,
+  to the reported patch, and to a pinned compose `user:` — each fails the guard it is aimed at.
+  Verified **in Docker** both ways: a writable mount starts, serves `/api/health` 200 and writes
+  `episodes.db` as uid 1000; a read-only mount refuses to start with the actionable error.
+- ⚠️ **Upgrading an existing install needs one check.** On a Linux host, confirm `./data` is owned by uid 1000, or set `APP_UID`/`APP_GID` in `.env` to whoever owns it. Missing it is not silent: the app refuses to start and prints the fix.
+
 ## [v0.10.2] - 2026-08-18
 - **Fix: one dropped Kokoro connection no longer destroys a whole episode.** `KokoroClient.synthesize`
   now retries transient failures (any `httpx.TransportError` — dropped connection, timeout, protocol

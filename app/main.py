@@ -11,12 +11,14 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import random
 import re
 import shutil
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -56,8 +58,42 @@ RETRY_JITTER_SECONDS = 5 * 60
 PARSER_HEALTH_DELAY_SECONDS = 1.5
 
 
+class DataDirNotWritableError(RuntimeError):
+    """`/data` cannot be written by the account the app is running as."""
+
+
+def ensure_data_dir_writable(data_dir: Path) -> None:
+    """Fail at startup, loudly, if the data directory cannot be written.
+
+    The container runs as a non-root user (see the Dockerfile) while `/data` is a host bind mount
+    whose ownership the image cannot control. When the two disagree every write fails — the
+    database, the mp3s, the page cache — and without this check the first symptom would be a
+    broadcast dying part-way through, hours later, with a stack trace about sqlite.
+
+    A permission mismatch is silence, not an error, which is the same shape as the compose
+    variable that never reached the container in v0.10.1. So it is checked once, at the front,
+    with a message that names the fix.
+    """
+    uid = getattr(os, "getuid", lambda: -1)()
+    gid = getattr(os, "getgid", lambda: -1)()
+    probe = data_dir / ".write-probe"
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        probe.touch()
+        probe.unlink()
+    except OSError as exc:
+        raise DataDirNotWritableError(
+            f"{data_dir} is not writable by uid={uid} gid={gid} ({exc.strerror}). "
+            f"The app runs as a non-root user and this path is a bind mount from the host, so "
+            f"the host directory decides. Fix it on the host with "
+            f"`sudo chown -R {uid}:{gid} ./data`, or set APP_UID/APP_GID in .env to whoever "
+            f"owns ./data and restart."
+        ) from exc
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_data_dir_writable(config.data_dir)
     db.init_db(config.db_path)
     config.audio_dir.mkdir(parents=True, exist_ok=True)
     config.cache_dir.mkdir(parents=True, exist_ok=True)
