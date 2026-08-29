@@ -6,6 +6,42 @@
 > Global lessons learned (Python): ~/.claude/global/python/
 > Global lessons learned (Shared): ~/.claude/global/shared/
 
+## Issue: a writability probe that creates a new file tests the directory, not the data
+- **Date:** 2026-08-29
+- **Topic:** Packaging
+- **Problem:** `ensure_data_dir_writable` — added in v0.10.3 *precisely* so that a permission
+  mismatch would be loud — passed on a box where the app could not write its own database. The app
+  came up HEALTHY; the nightly retention prune died hours later on `sqlite3.OperationalError:
+  attempt to write a readonly database`, which is the exact symptom the guard was written to
+  prevent.
+- **The probe measured a proxy.** It created `.write-probe` in `/data` and removed it. Creating an
+  entry in a directory tests *that directory's* permission bits and says nothing about who owns the
+  files already inside it. Upgrading from the container that ran as root leaves `/data` itself
+  writable (0777) with every child still `root:root` — so the probe passes and every real write
+  fails.
+- **`/api/health` agreed with the probe, for the same reason.** It reports `db:
+  config.db_path.exists()`, an `os.stat`. Every reading check was green while every writing
+  operation was doomed, which is why the box looked fine for hours.
+- **The test could not have caught it either.** The v0.10.3 test builds an unwritable mount with
+  `chmod 0o500` on the whole directory — which fails under the old and the new implementation
+  alike. A fixture that cannot distinguish the two is not a regression test (see *a test that
+  passes against the broken code proves nothing*, below). The distinguishing shape is a **writable
+  root with unwritable children**: a `0444` database and a `0555` subdirectory, neither of which
+  needs root to build.
+- **Fix:** probe the artifacts. `episodes.db` is opened in append mode — that acquires the write
+  permission without writing a byte, leaving content, size and mtime untouched — and `audio/` and
+  `cache/` get the create-and-remove probe. `os.access(path, W_OK)` was rejected for the file: it
+  answers from the real uid and is wrong under ACLs, where an actual `open` is authoritative.
+- **Still open:** the guard covers `audio/` but not `audio/<episode_id>/`, and both
+  `retention.prune` and `_delete_episode` call `shutil.rmtree(..., ignore_errors=True)`. Under a
+  *partial* chown the episode rows would be deleted while the mp3s silently survive — orphaned
+  files and quiet disk growth.
+- **Lesson:** a guard is only as good as the object it actually touches. If the check writes a
+  *new* thing and the app writes *existing* ones, the two are testing different permissions, and
+  the check can be green while the app is already dead. Probe the specific artifacts the code
+  depends on — and build the fixture from the failure that happened in production, not from the
+  easiest way to make a directory unwritable.
+
 ## Issue: dropping root in a container moves the problem to the host's file ownership
 - **Date:** 2026-08-22
 - **Topic:** Packaging

@@ -62,6 +62,13 @@ class DataDirNotWritableError(RuntimeError):
     """`/data` cannot be written by the account the app is running as."""
 
 
+def _probe_new_entry(directory: Path) -> None:
+    """Raise OSError if a new entry cannot be created inside `directory`."""
+    probe = directory / f".write-probe-{os.getpid()}"
+    probe.touch()
+    probe.unlink()
+
+
 def ensure_data_dir_writable(data_dir: Path) -> None:
     """Fail at startup, loudly, if the data directory cannot be written.
 
@@ -73,22 +80,53 @@ def ensure_data_dir_writable(data_dir: Path) -> None:
     A permission mismatch is silence, not an error, which is the same shape as the compose
     variable that never reached the container in v0.10.1. So it is checked once, at the front,
     with a message that names the fix.
+
+    It probes the *artifacts*, not just the mount point. v0.10.3 checked only that a new file
+    could be created in `/data`, and so shipped a guard that could not see the failure it was
+    written for: upgrading a box that had been running as root leaves `/data` itself writable
+    with every existing child still owned by root. The new file lands at the top level, the probe
+    passes, the app comes up healthy — `/api/health` returns 200 because it only reads — and the
+    nightly retention prune is the first thing to actually write, dying on `attempt to write a
+    readonly database`. That is the exact symptom this function exists to prevent, and it
+    happened in production on 2026-08-29.
     """
     uid = getattr(os, "getuid", lambda: -1)()
     gid = getattr(os, "getgid", lambda: -1)()
-    probe = data_dir / ".write-probe"
-    try:
-        data_dir.mkdir(parents=True, exist_ok=True)
-        probe.touch()
-        probe.unlink()
-    except OSError as exc:
-        raise DataDirNotWritableError(
-            f"{data_dir} is not writable by uid={uid} gid={gid} ({exc.strerror}). "
-            f"The app runs as a non-root user and this path is a bind mount from the host, so "
+
+    def unwritable(target: Path, exc: OSError) -> DataDirNotWritableError:
+        where = str(target) if target == data_dir else f"{target} (inside {data_dir})"
+        return DataDirNotWritableError(
+            f"{where} is not writable by uid={uid} gid={gid} ({exc.strerror}). "
+            f"The app runs as a non-root user and {data_dir} is a bind mount from the host, so "
             f"the host directory decides. Fix it on the host with "
             f"`sudo chown -R {uid}:{gid} ./data`, or set APP_UID/APP_GID in .env to whoever "
             f"owns ./data and restart."
-        ) from exc
+        )
+
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        _probe_new_entry(data_dir)
+    except OSError as exc:
+        raise unwritable(data_dir, exc) from exc
+
+    # These names mirror Config.db_path / audio_dir / cache_dir. Only what already exists is
+    # worth probing: anything missing is created later in the lifespan, by this process, and is
+    # therefore ours by construction.
+    db_path = data_dir / "episodes.db"
+    if db_path.exists():
+        try:
+            # Append opens for writing without writing a byte — no content, size or mtime change.
+            with db_path.open("ab"):
+                pass
+        except OSError as exc:
+            raise unwritable(db_path, exc) from exc
+
+    for subdir in (data_dir / "audio", data_dir / "cache"):
+        if subdir.is_dir():
+            try:
+                _probe_new_entry(subdir)
+            except OSError as exc:
+                raise unwritable(subdir, exc) from exc
 
 
 @asynccontextmanager

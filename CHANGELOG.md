@@ -1,5 +1,31 @@
 # Version History
 
+## [v0.10.4] - 2026-08-29
+- **Fix: the v0.10.3 startup guard could not see the failure it was written for.** On the production
+  box `/data` was mode 0777 owned by root while every child stayed root-owned — the shape left
+  behind by upgrading from the container that ran as root. `ensure_data_dir_writable` probed by
+  creating a new file in the mount root, which succeeds under exactly those permissions, so the app
+  started **healthy holding a database it could not write**.
+- **The symptom was the one the guard exists to prevent.** The nightly retention prune is the first
+  thing that actually writes, and it died on `sqlite3.OperationalError: attempt to write a readonly
+  database`. `/api/health` returned 200 throughout, because it only reads (`config.db_path.exists()`
+  is an `os.stat`).
+- **So the probe now targets the artifacts, not the mount point.** `episodes.db` is opened `"ab"` —
+  append takes the write permission without writing a byte, so content, size and mtime are
+  untouched — and `audio/` / `cache/` each get a create-and-remove probe. `os.access(..., W_OK)` was
+  rejected: it answers from the real uid and misreports under ACLs, where an actual `open` is
+  authoritative. Errors now name the artifact that failed (`…/episodes.db (inside /data)`) and still
+  carry the `chown` command and the `APP_UID` escape hatch.
+- **159 → 163 tests.** The v0.10.3 test could not have caught this — it makes the *whole* mount
+  unwritable, which fails under either implementation. The new fixtures make the root writable and
+  the children not: a `0444` database and a `0555` subdirectory (parametrized over `audio` and
+  `cache`). Verified by reverting `app/main.py` to the v0.10.3 implementation and watching exactly
+  those three fail; the fourth, which pins that the probe leaves the database byte-for-byte intact,
+  passes against both on purpose. `ruff` clean.
+- ⚠️ **This affected every box upgrading from a pre-v0.10.3 (root-run) container** — the ownership
+  such an upgrade leaves behind is precisely the shape that defeated the guard. A box whose `./data`
+  has already been `chown -R`'d to the app's uid is unaffected.
+
 ## [v0.10.3] - 2026-08-22
 - **Security: the container no longer runs as root.** The `Dockerfile` had no `USER` directive, so
   uvicorn ran as root inside the container (CWE-250). Reported on the public repo by an automated

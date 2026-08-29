@@ -92,3 +92,76 @@ def test_an_unwritable_data_dir_fails_loudly_and_names_the_fix(tmp_path):
     assert "chown" in message, "the error does not tell anyone how to fix it"
     assert "APP_UID" in message, "the error does not mention the .env escape hatch"
     assert str(locked) in message, "the error does not say which directory"
+
+
+# ----------------------------------------------------------------- the guard's own blind spot
+# The v0.10.3 guard above could not see the failure it was written for. On the production box
+# `/data` was mode 0777 owned by root while every child stayed root-owned — the shape left behind
+# by upgrading from the container that ran as root. The mount-root probe created its file, passed,
+# and the app came up healthy holding a database it could not write; the retention prune died
+# hours later on `attempt to write a readonly database`.
+#
+# The test above cannot catch that: it makes the whole mount unwritable, which fails either way.
+# The distinguishing fixture is a WRITABLE root with UNWRITABLE children.
+
+requires_non_root = pytest.mark.skipif(
+    getattr(os, "getuid", lambda: -1)() == 0,
+    reason="root can write anywhere, so there is nothing to detect",
+)
+
+
+@requires_non_root
+def test_a_readonly_database_is_caught_though_the_mount_root_is_writable(tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    data.chmod(0o777)
+    db_path = data / "episodes.db"
+    db_path.write_bytes(b"SQLite format 3\x00")
+    db_path.chmod(0o444)
+    try:
+        with pytest.raises(DataDirNotWritableError) as caught:
+            ensure_data_dir_writable(data)
+    finally:
+        db_path.chmod(0o644)
+
+    message = str(caught.value)
+    assert "episodes.db" in message, "the error does not name the artifact that cannot be written"
+    assert "chown" in message, "the error does not tell anyone how to fix it"
+
+
+@requires_non_root
+@pytest.mark.parametrize("name", ["audio", "cache"])
+def test_an_unwritable_subdirectory_is_caught_though_the_root_is_writable(tmp_path, name):
+    data = tmp_path / "data"
+    data.mkdir()
+    data.chmod(0o777)
+    subdir = data / name
+    subdir.mkdir()
+    subdir.chmod(0o555)
+    try:
+        with pytest.raises(DataDirNotWritableError) as caught:
+            ensure_data_dir_writable(data)
+    finally:
+        subdir.chmod(0o755)
+
+    assert str(subdir) in str(caught.value), "the error does not say which directory"
+
+
+def test_existing_writable_artifacts_are_accepted_and_left_alone(tmp_path):
+    """The probes must not be destructive — one of them opens the live database."""
+    data = tmp_path / "data"
+    data.mkdir()
+    db_path = data / "episodes.db"
+    header = b"SQLite format 3\x00"
+    db_path.write_bytes(header)
+    (data / "audio").mkdir()
+    (data / "cache").mkdir()
+
+    ensure_data_dir_writable(data)
+
+    assert db_path.read_bytes() == header, "the writability probe modified the database"
+    assert sorted(p.name for p in data.iterdir()) == ["audio", "cache", "episodes.db"], (
+        "an artifact probe left a file behind"
+    )
+    assert list((data / "audio").iterdir()) == [], "the audio probe left a file behind"
+    assert list((data / "cache").iterdir()) == [], "the cache probe left a file behind"
